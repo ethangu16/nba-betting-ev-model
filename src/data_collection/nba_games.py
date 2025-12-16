@@ -100,6 +100,24 @@ def calculate_advanced_stats(df):
 
     return df
 
+def get_player_stats_for_season(season_str):
+    """Fetch PLAYER stats for a single season"""
+    print(f"Fetching PLAYER stats for {season_str}...")
+    try:
+        # 'P' gets player stats
+        gamefinder = leaguegamefinder.LeagueGameFinder(
+            season_nullable=season_str,
+            league_id_nullable='00',
+            season_type_nullable='Regular Season',
+            player_or_team_abbreviation='P' 
+        )
+        games = gamefinder.get_data_frames()[0]
+        print(f"  -> Found {len(games)} player rows.")
+        return games
+    except Exception as e:
+        print(f"Error fetching players {season_str}: {e}")
+        return pd.DataFrame()
+
 if __name__ == "__main__":
     print("Starting NBA data collection (Multi-Season)...")
     
@@ -131,4 +149,16 @@ if __name__ == "__main__":
         processed_df.to_csv(OUTPUT_FILE, index=False)
         
         print(f"\n✅ Success! Saved {len(processed_df)} rows to {OUTPUT_FILE}")
-print(processed_df.groupby('SEASON_ID')['GAME_ID'].count())
+
+    all_player_dfs = []
+    for season in SEASONS:
+        p_df = get_player_stats_for_season(season)
+        if not p_df.empty:
+            all_player_dfs.append(p_df)
+            time.sleep(1)
+            
+    if all_player_dfs:
+        full_player_df = pd.concat(all_player_dfs, ignore_index=True)
+        full_player_df.to_csv('data/raw/nba_player_games.csv', index=False)
+        print("✅ Saved Player Stats!")
+

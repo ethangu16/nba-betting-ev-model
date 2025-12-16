@@ -96,7 +96,7 @@ def get_live_odds():
     # 3. Save to CSV
     if rows:
         df = pd.DataFrame(rows)
-        filename = f'data/odds/live_odds_{datetime.now().strftime("%Y%m%d")}.csv'
+        filename = f'data/odds/live_odds.csv'
         df.to_csv(filename, index=False)
         print(f"✅ Success! Saved {len(df)} games to {filename}")
         print(df[['HOME_TEAM', 'HOME_ML', 'HOME_SPREAD']].head())

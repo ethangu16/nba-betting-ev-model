@@ -10,7 +10,7 @@ MODEL_PATH = 'models/nba_xgb_model.json'
 # 2. Your up-to-date stats (for calculating rolling averages)
 STATS_PATH = 'data/raw/nba_games_advanced.csv'
 # 3. Your Live Odds file (Update this filename to match what you just downloaded!)
-ODDS_PATH = 'data/odds/live_odds_20251211.csv' 
+ODDS_PATH = 'data/odds/live_odds.csv' 
 
 # 4. Same Elo params as training
 K_FACTOR = 25
@@ -161,29 +161,69 @@ def predict():
         }])
         
         # 4. Predict
-        win_prob = model.predict_proba(feature_row)[0][1] # Prob of Class 1 (Win)
+#         win_prob = model.predict_proba(feature_row)[0][1] # Prob of Class 1 (Win)
+        
+#         # 5. EV Calculation
+# # ... (Previous code remains the same: Feature building & Prediction) ...
+        # 4. Predict
+        prob_home = model.predict_proba(feature_row)[0][1]
+        prob_away = 1.0 - prob_home
         
         # 5. EV Calculation
-        # Check Moneyline (Home)
-        home_ml = row['HOME_ML']
-        if pd.isna(home_ml): continue
+        # Helper to convert American Odds -> Implied Prob
+        def get_implied(ml):
+            if pd.isna(ml) or ml == 0: return 0.5 # Safety for bad data
+            if ml < 0: return (-ml) / (-ml + 100)
+            return 100 / (ml + 100)
+
+        # Get Odds
+        home_ml = row.get('HOME_ML')
+        away_ml = row.get('AWAY_ML')
         
-        # Implied Prob
-        if home_ml < 0:
-            implied = (-home_ml) / (-home_ml + 100)
+        implied_home = get_implied(home_ml)
+        implied_away = get_implied(away_ml)
+        
+        # Calculate Edges
+        edge_home = prob_home - implied_home
+        edge_away = prob_away - implied_away
+        
+        # --- DECISION LOGIC ---
+        THRESHOLD = 0.02 # 2% Edge required
+        
+        if edge_home > THRESHOLD:
+            rec = f"BET HOME ({home_abbr})"
+            display_odds = home_ml
+            display_implied = implied_home
+            display_edge = edge_home
+        elif edge_away > THRESHOLD:
+            rec = f"BET AWAY ({away_abbr})"
+            display_odds = away_ml
+            display_implied = implied_away
+            display_edge = edge_away
         else:
-            implied = 100 / (home_ml + 100)
+            rec = "NO BET"
+            # If no bet, default to showing Home info so you see the "Main Line"
+            display_odds = home_ml
+            display_implied = implied_home
+            display_edge = 0.0 # No edge realized
             
-        edge = win_prob - implied
-        
         predictions.append({
             'Game': f"{home_abbr} vs {away_abbr}",
-            'Model_Prob': f"{win_prob:.1%}",
-            'Implied_Prob': f"{implied:.1%}",
-            'Edge': f"{edge:.1%}",
-            'Rec': "BET HOME" if edge > 0.02 else "NO BET", # 2% Threshold
-            'Odds': home_ml
+            'Model_Home_Win%': f"{prob_home:.1%}",
+            'Implied_Win%': f"{display_implied:.1%}", # <--- NEW COLUMN
+            'Edge': f"{display_edge:.1%}",
+            'Rec': rec,
+            'Odds': int(display_odds) if not pd.isna(display_odds) else "N/A" # <--- FIXED (No more 0)
         })
+        
+        # predictions.append({
+        #     'Game': f"{home_abbr} vs {away_abbr}",
+        #     'Model_Prob': f"{win_prob:.1%}",
+        #     'Implied_Prob': f"{implied:.1%}",
+        #     'Edge': f"{edge:.1%}",
+        #     'Rec': "BET HOME" if edge > 0.02 else "NO BET", # 2% Threshold
+        #     'Odds': home_ml
+        # })
 
     # Output
     print("\n--- TODAY'S PREDICTIONS ---")
