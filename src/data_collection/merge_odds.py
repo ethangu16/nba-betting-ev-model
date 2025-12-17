@@ -2,9 +2,9 @@ import pandas as pd
 import numpy as np
 
 # --- CONFIGURATION ---
-STATS_PATH = 'data/raw/nba_games_advanced.csv'
+STATS_PATH = 'data/raw/nba_games_stats.csv'
 ODDS_PATH = 'data/odds/nba_2008-2025.csv'
-OUTPUT_PATH = 'data/processed/nba_final_dataset.csv'
+OUTPUT_PATH = 'data/processed/nba_stats_odds.csv'
 
 # TEAM MAPPING
 TEAM_MAP = {

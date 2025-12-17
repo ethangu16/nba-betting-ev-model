@@ -7,7 +7,7 @@ from datetime import datetime
 from math import radians, cos, sin, asin, sqrt
 
 SEASONS = ['2021-22', '2022-23', '2023-24', '2024-25', '2025-26']
-OUTPUT_FILE = 'data/raw/nba_games_advanced.csv'
+OUTPUT_FILE = 'data/raw/nba_games_stats.csv'
 
 # Arena Coordinates
 ARENA_COORDS = {
@@ -159,6 +159,6 @@ if __name__ == "__main__":
             
     if all_player_dfs:
         full_player_df = pd.concat(all_player_dfs, ignore_index=True)
-        full_player_df.to_csv('data/raw/nba_player_games.csv', index=False)
+        full_player_df.to_csv('data/raw/nba_player_stats.csv', index=False)
         print("✅ Saved Player Stats!")
 

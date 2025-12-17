@@ -12,7 +12,6 @@ def get_live_odds():
     params = {
         'apiKey': API_KEY,
         'regions': 'us', 
-        # REQUESTING BOTH MARKETS NOW
         'markets': 'h2h,spreads', 
         'oddsFormat': 'american'
     }
@@ -43,8 +42,7 @@ def get_live_odds():
         away_spread_odds = None
         bookmaker_name = None
 
-        # Loop through bookmakers to find the first valid one (e.g., DraftKings or FanDuel)
-        # You can prioritize specific books if you want
+        # Loop through bookmakers to find the first valid one
         target_books = ['draftkings', 'fanduel', 'betmgm']
         
         selected_book = None
