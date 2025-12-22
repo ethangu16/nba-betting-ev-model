@@ -1,104 +1,102 @@
-team,player_name,position,date,status,description,scrape_date
-Atlanta Hawks,Kristaps Porzingis,,C,Dec 29,Out,2025-12-16
-Atlanta Hawks,N'Faly Dante,,C,Dec 18,Out,2025-12-16
-Atlanta Hawks,Trae Young,,G,Dec 18,Out,2025-12-16
-Atlanta Hawks,Eli John Ndiaye,,C,Dec 19,Day-To-Day,2025-12-16
-Boston Celtics,Sam Hauser,,F,Dec 19,Day-To-Day,2025-12-16
-Boston Celtics,Ron Harper Jr.,,G,Dec 19,Day-To-Day,2025-12-16
-Boston Celtics,Jayson Tatum,,F,Apr 1,Out,2025-12-16
-Brooklyn Nets,E.J. Liddell,,F,Dec 18,Out,2025-12-16
-Brooklyn Nets,Ben Saraf,,G,Dec 18,Day-To-Day,2025-12-16
-Brooklyn Nets,Cam Thomas,,G,Dec 23,Out,2025-12-16
-Brooklyn Nets,Haywood Highsmith,,F,Dec 18,Out,2025-12-16
-Charlotte Hornets,Pat Connaughton,,G,Dec 18,Out,2025-12-16
-Charlotte Hornets,Grant Williams,,F,Dec 22,Out,2025-12-16
-Charlotte Hornets,Collin Sexton,,G,Dec 18,Out,2025-12-16
-Charlotte Hornets,Tre Mann,,G,Dec 18,Out,2025-12-16
-Charlotte Hornets,LaMelo Ball,,G,Dec 18,Out,2025-12-16
-Chicago Bulls,Lachlan Olbrich,,C,Dec 17,Day-To-Day,2025-12-16
-Chicago Bulls,Ayo Dosunmu,,G,Dec 17,Day-To-Day,2025-12-16
-Chicago Bulls,Noa Essengue,,F,Oct 1,Out,2025-12-16
-Cleveland Cavaliers,Luke Travers,,F,Dec 17,Day-To-Day,2025-12-16
-Cleveland Cavaliers,Sam Merrill,,G,Dec 17,Out,2025-12-16
-Cleveland Cavaliers,Max Strus,,G,Dec 17,Out,2025-12-16
-Cleveland Cavaliers,Evan Mobley,,C,Dec 27,Out,2025-12-16
-Cleveland Cavaliers,Larry Nance Jr.,,F,Dec 22,Out,2025-12-16
-Dallas Mavericks,Brandon Williams,,G,Dec 18,Day-To-Day,2025-12-16
-Dallas Mavericks,Anthony Davis,,F,Dec 18,Out,2025-12-16
-Dallas Mavericks,D'Angelo Russell,,G,Dec 18,Out,2025-12-16
-Dallas Mavericks,Kyrie Irving,,G,Feb 12,Out,2025-12-16
-Dallas Mavericks,Dereck Lively II,,C,Oct 1,Out,2025-12-16
-Dallas Mavericks,Dante Exum,,G,Oct 1,Out,2025-12-16
-Denver Nuggets,Peyton Watson,,G,Dec 18,Day-To-Day,2025-12-16
-Denver Nuggets,Christian Braun,,G,Jan 9,Out,2025-12-16
-Denver Nuggets,Tamar Bates,,G,Dec 19,Day-To-Day,2025-12-16
-Denver Nuggets,Aaron Gordon,,F,Jan 2,Out,2025-12-16
-Detroit Pistons,Isaac Jones,,C,Dec 18,Day-To-Day,2025-12-16
-Golden State Warriors,Gary Payton II,,G,Dec 18,Day-To-Day,2025-12-16
-Golden State Warriors,Al Horford,,C,Dec 18,Out,2025-12-16
-Houston Rockets,Tari Eason,,F,Dec 18,Out,2025-12-16
-Houston Rockets,Dorian Finney-Smith,,F,Jan 1,Out,2025-12-16
-Houston Rockets,Fred VanVleet,,G,Jun 1,Out,2025-12-16
-Indiana Pacers,Ben Sheppard,,G,Dec 20,Out,2025-12-16
-Indiana Pacers,Aaron Nesmith,,G,Dec 18,Out,2025-12-16
-Indiana Pacers,Obi Toppin,,F,Feb 2,Out,2025-12-16
-Indiana Pacers,Tyrese Haliburton,,G,Oct 1,Out,2025-12-16
-LA Clippers,Nicolas Batum,,F,Dec 18,Day-To-Day,2025-12-16
-LA Clippers,Derrick Jones Jr.,,F,Dec 30,Out,2025-12-16
-LA Clippers,Bradley Beal,,G,Oct 1,Out,2025-12-16
-Los Angeles Lakers,Maxi Kleber,,F,Dec 18,Out,2025-12-16
-Los Angeles Lakers,Austin Reaves,,G,Dec 20,Out,2025-12-16
-Memphis Grizzlies,Ja Morant,,G,Dec 17,Day-To-Day,2025-12-16
-Memphis Grizzlies,Brandon Clarke,,F,Dec 17,Out,2025-12-16
-Memphis Grizzlies,John Konchar,,G,Jan 6,Out,2025-12-16
-Memphis Grizzlies,Javon Small,,G,Jan 9,Out,2025-12-16
-Memphis Grizzlies,Zach Edey,,C,Jan 9,Out,2025-12-16
-Memphis Grizzlies,Ty Jerome,,G,Jan 15,Out,2025-12-16
-Memphis Grizzlies,Scotty Pippen Jr.,,G,Jan 15,Out,2025-12-16
-Miami Heat,Nikola Jovic,,F,Dec 18,Day-To-Day,2025-12-16
-Miami Heat,Tyler Herro,,G,Dec 18,Out,2025-12-16
-Miami Heat,Pelle Larsson,,G,Dec 18,Out,2025-12-16
-Miami Heat,Terry Rozier,,G,Feb 20,Out,2025-12-16
-Milwaukee Bucks,AJ Green,,G,Dec 18,Out,2025-12-16
-Milwaukee Bucks,Giannis Antetokounmpo,,F,Dec 31,Out,2025-12-16
-Milwaukee Bucks,Taurean Prince,,F,Jan 2,Out,2025-12-16
-Minnesota Timberwolves,Mike Conley,,G,Dec 17,Day-To-Day,2025-12-16
-Minnesota Timberwolves,Anthony Edwards,,G,Dec 17,Day-To-Day,2025-12-16
-Minnesota Timberwolves,Rudy Gobert,,C,Dec 17,Day-To-Day,2025-12-16
-New Orleans Pelicans,Dejounte Murray,,G,Jan 2,Out,2025-12-16
-New York Knicks,Miles McBride,,G,Dec 18,Out,2025-12-16
-New York Knicks,Landry Shamet,,G,Dec 24,Out,2025-12-16
-Oklahoma City Thunder,Isaiah Joe,,G,Dec 18,Out,2025-12-16
-Oklahoma City Thunder,Nikola Topic,,G,Feb 20,Out,2025-12-16
-Oklahoma City Thunder,Thomas Sorber,,C,Oct 1,Out,2025-12-16
-Orlando Magic,Jalen Suggs,,G,Dec 18,Day-To-Day,2025-12-16
-Orlando Magic,Moritz Wagner,,F,Dec 26,Out,2025-12-16
-Orlando Magic,Franz Wagner,,F,Dec 26,Out,2025-12-16
-Orlando Magic,Colin Castleton,,C,Dec 22,Out,2025-12-16
-Philadelphia 76ers,Joel Embiid,,C,Dec 19,Day-To-Day,2025-12-16
-Philadelphia 76ers,Tyrese Maxey,,G,Dec 19,Out,2025-12-16
-Philadelphia 76ers,Kelly Oubre Jr.,,G,Dec 19,Out,2025-12-16
-Philadelphia 76ers,Hunter Sallis,,G,Dec 16,Day-To-Day,2025-12-16
-Philadelphia 76ers,Trendon Watford,,F,Dec 19,Out,2025-12-16
-Phoenix Suns,Isaiah Livers,,F,Dec 18,Out,2025-12-16
-Phoenix Suns,Koby Brea,,G,Dec 18,Out,2025-12-16
-Phoenix Suns,Jalen Green,,G,Dec 18,Out,2025-12-16
-Portland Trail Blazers,Matisse Thybulle,,G,Dec 22,Out,2025-12-16
-Portland Trail Blazers,Jrue Holiday,,G,Dec 18,Out,2025-12-16
-Portland Trail Blazers,Scoot Henderson,,G,Dec 20,Out,2025-12-16
-Portland Trail Blazers,Blake Wesley,,G,Jan 30,Out,2025-12-16
-Portland Trail Blazers,Damian Lillard,,G,Oct 1,Out,2025-12-16
-Sacramento Kings,Zach LaVine,,G,Dec 18,Day-To-Day,2025-12-16
-Sacramento Kings,Drew Eubanks,,F,Jan 4,Out,2025-12-16
-Sacramento Kings,Domantas Sabonis,,F,Dec 18,Out,2025-12-16
-San Antonio Spurs,Kyle Mangas,,G,Dec 19,Day-To-Day,2025-12-16
-Toronto Raptors,RJ Barrett,,F,Dec 18,Out,2025-12-16
-Toronto Raptors,A.J. Lawson,,G,Dec 16,Day-To-Day,2025-12-16
-Utah Jazz,Georges Niang,,F,Dec 30,Out,2025-12-16
-Utah Jazz,Jusuf Nurkic,,C,Dec 18,Out,2025-12-16
-Utah Jazz,Walker Kessler,,C,Oct 1,Out,2025-12-16
-Washington Wizards,Alex Sarr,,C,Dec 18,Out,2025-12-16
-Washington Wizards,Malaki Branham,,G,Dec 18,Out,2025-12-16
-Washington Wizards,Khris Middleton,,F,Dec 18,Out,2025-12-16
-Washington Wizards,Bilal Coulibaly,,G,Dec 18,Out,2025-12-16
-Washington Wizards,Corey Kispert,,F,Dec 18,Out,2025-12-16
+team,player_name,position,date,status,description
+Atlanta Hawks,N'Faly Dante,,C,Dec 29,Out
+Atlanta Hawks,Eli John Ndiaye,,C,Dec 21,Out
+Atlanta Hawks,Kristaps Porzingis,,C,Dec 29,Out
+Boston Celtics,Jaylen Brown,,G,Dec 22,Out
+Boston Celtics,Jayson Tatum,,F,Apr 1,Out
+Brooklyn Nets,Drake Powell,,G,Dec 23,Out
+Brooklyn Nets,Haywood Highsmith,,F,Jan 4,Out
+Brooklyn Nets,Cam Thomas,,G,Dec 23,Out
+Charlotte Hornets,Collin Sexton,,G,Dec 22,Out
+Charlotte Hornets,Grant Williams,,F,Dec 26,Out
+Chicago Bulls,Jalen Smith,,F,Dec 21,Day-To-Day
+Chicago Bulls,Ayo Dosunmu,,G,Dec 21,Day-To-Day
+Chicago Bulls,Coby White,,G,Dec 21,Day-To-Day
+Chicago Bulls,Noa Essengue,,F,Oct 1,Out
+Cleveland Cavaliers,Craig Porter Jr.,,G,Dec 22,Day-To-Day
+Cleveland Cavaliers,Donovan Mitchell,,G,Dec 22,Day-To-Day
+Cleveland Cavaliers,Max Strus,,G,Dec 22,Out
+Cleveland Cavaliers,Sam Merrill,,G,Dec 22,Out
+Cleveland Cavaliers,Evan Mobley,,C,Dec 27,Out
+Cleveland Cavaliers,Larry Nance Jr.,,F,Dec 22,Out
+Dallas Mavericks,Kyrie Irving,,G,Feb 12,Out
+Dallas Mavericks,Dereck Lively II,,C,Oct 1,Out
+Dallas Mavericks,Dante Exum,,G,Oct 1,Out
+Denver Nuggets,Peyton Watson,,G,Dec 22,Out
+Denver Nuggets,Christian Braun,,G,Jan 9,Out
+Denver Nuggets,Aaron Gordon,,F,Jan 2,Out
+Detroit Pistons,Isaac Jones,,C,Dec 20,Out
+Golden State Warriors,Jonathan Kuminga,,F,Dec 22,Out
+Golden State Warriors,Seth Curry,,SG,Dec 22,Out
+Golden State Warriors,Al Horford,,C,Dec 25,Out
+Houston Rockets,Tari Eason,,F,Dec 21,Out
+Houston Rockets,Dorian Finney-Smith,,F,Jan 1,Out
+Houston Rockets,Fred VanVleet,,G,Jun 1,Out
+Indiana Pacers,Ben Sheppard,,G,Dec 26,Out
+Indiana Pacers,Aaron Nesmith,,G,Dec 26,Out
+Indiana Pacers,Obi Toppin,,F,Feb 2,Out
+Indiana Pacers,Tyrese Haliburton,,G,Oct 1,Out
+LA Clippers,Ivica Zubac,,C,Dec 20,Day-To-Day
+LA Clippers,Derrick Jones Jr.,,F,Dec 30,Out
+LA Clippers,Yanic Konan Niederhauser,,C,Dec 23,Out
+LA Clippers,Bradley Beal,,G,Oct 1,Out
+Los Angeles Lakers,Rui Hachimura,,F,Dec 23,Out
+Los Angeles Lakers,Deandre Ayton,,C,Dec 23,Out
+Los Angeles Lakers,Austin Reaves,,G,Dec 23,Out
+Los Angeles Lakers,Gabe Vincent,,G,Dec 28,Out
+Memphis Grizzlies,Brandon Clarke,,F,Dec 20,Day-To-Day
+Memphis Grizzlies,Vince Williams Jr.,,G,Dec 22,Out
+Memphis Grizzlies,Ja Morant,,G,Dec 22,Out
+Memphis Grizzlies,John Konchar,,G,Jan 6,Out
+Memphis Grizzlies,Javon Small,,G,Jan 9,Out
+Memphis Grizzlies,Zach Edey,,C,Jan 9,Out
+Memphis Grizzlies,Ty Jerome,,G,Jan 15,Out
+Memphis Grizzlies,Scotty Pippen Jr.,,G,Jan 15,Out
+Miami Heat,Davion Mitchell,,G,Dec 21,Day-To-Day
+Miami Heat,Andrew Wiggins,,F,Dec 21,Day-To-Day
+Miami Heat,Tyler Herro,,G,Dec 23,Out
+Miami Heat,Pelle Larsson,,G,Dec 23,Out
+Miami Heat,Nikola Jovic,,F,Dec 26,Out
+Miami Heat,Terry Rozier,,G,Feb 20,Out
+Milwaukee Bucks,Giannis Antetokounmpo,,F,Dec 31,Out
+Milwaukee Bucks,Taurean Prince,,F,Jan 2,Out
+Minnesota Timberwolves,Mike Conley,,G,Dec 21,Out
+New Orleans Pelicans,Herbert Jones,,F,Dec 22,Day-To-Day
+New Orleans Pelicans,Dejounte Murray,,G,Jan 2,Out
+New York Knicks,Miles McBride,,G,Dec 25,Out
+New York Knicks,Landry Shamet,,G,Dec 25,Out
+Oklahoma City Thunder,Jaylin Williams,,F,Dec 22,Day-To-Day
+Oklahoma City Thunder,Aaron Wiggins,,G,Dec 22,Day-To-Day
+Oklahoma City Thunder,Nikola Topic,,G,Feb 20,Out
+Oklahoma City Thunder,Thomas Sorber,,C,Oct 1,Out
+Orlando Magic,Tristan da Silva,,F,Dec 22,Out
+Orlando Magic,Jalen Suggs,,G,Dec 22,Out
+Orlando Magic,Moritz Wagner,,F,Dec 26,Out
+Orlando Magic,Franz Wagner,,F,Dec 26,Out
+Orlando Magic,Colin Castleton,,C,Dec 31,Out
+Philadelphia 76ers,Joel Embiid,,C,Dec 23,Out
+Philadelphia 76ers,Paul George,,F,Dec 23,Out
+Philadelphia 76ers,Kelly Oubre Jr.,,G,Dec 23,Out
+Philadelphia 76ers,Trendon Watford,,F,Dec 23,Out
+Phoenix Suns,Grayson Allen,,G,Dec 23,Out
+Phoenix Suns,Jalen Green,,G,Dec 26,Out
+Phoenix Suns,Koby Brea,,G,Dec 20,Out
+Portland Trail Blazers,Jerami Grant,,F,Dec 22,Out
+Portland Trail Blazers,Scoot Henderson,,G,Dec 26,Out
+Portland Trail Blazers,Jrue Holiday,,G,Dec 26,Out
+Portland Trail Blazers,Matisse Thybulle,,G,Dec 22,Out
+Portland Trail Blazers,Blake Wesley,,G,Jan 30,Out
+Portland Trail Blazers,Damian Lillard,,G,Oct 1,Out
+Sacramento Kings,Domantas Sabonis,,F,Jan 18,Out
+Sacramento Kings,Zach LaVine,,G,Dec 23,Out
+Sacramento Kings,Drew Eubanks,,F,Jan 4,Out
+Toronto Raptors,RJ Barrett,,F,Jan 3,Out
+Toronto Raptors,Jakob Poeltl,,C,Dec 21,Out
+Utah Jazz,Kyle Anderson,,F,Dec 22,Out
+Utah Jazz,Lauri Markkanen,,F,Dec 22,Out
+Utah Jazz,Georges Niang,,F,Dec 30,Out
+Utah Jazz,Walker Kessler,,C,Oct 1,Out
+Washington Wizards,Jamir Watkins,,G,Dec 21,Out
+Washington Wizards,Cam Whitmore,,F,Dec 21,Out
+Washington Wizards,Bilal Coulibaly,,G,Dec 21,Out
+Washington Wizards,Corey Kispert,,F,Dec 26,Out
