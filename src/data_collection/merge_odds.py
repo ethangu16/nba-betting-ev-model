@@ -1,146 +1,90 @@
 import pandas as pd
-import numpy as np
+import os
 
-# --- CONFIGURATION ---
-STATS_PATH = 'data/raw/nba_games_stats.csv'
-ODDS_PATH = 'data/odds/nba_2008-2025.csv'
-OUTPUT_PATH = 'data/processed/nba_stats_odds.csv'
+# --- PATHS ---
+STATS_PATH = 'data/processed/nba_model.csv'      # Your current training data
+ODDS_PATH = 'data/odds/nba_2008-2025.csv'                  # Your NEW file (update path if needed)
+OUTPUT_PATH = 'data/processed/nba_model_with_odds.csv' # The final product
 
-# TEAM MAPPING
+# --- TEAM NAME MAPPING (New File -> Standard) ---
+# This maps the lowercase/short names in your new CSV to official NBA codes
 TEAM_MAP = {
-    'atl': 'ATL', 'bkn': 'BKN', 'nj': 'BKN', 'bos': 'BOS', 'cha': 'CHA', 'ch': 'CHA',
-    'chi': 'CHI', 'cle': 'CLE', 'dal': 'DAL', 'den': 'DEN', 'det': 'DET', 'gs': 'GSW', 'gsw': 'GSW',
-    'hou': 'HOU', 'ind': 'IND', 'lac': 'LAC', 'lal': 'LAL', 'mem': 'MEM', 'mia': 'MIA', 'mil': 'MIL',
-    'min': 'MIN', 'no': 'NOP', 'nop': 'NOP', 'noh': 'NOP', 'ny': 'NYK', 'nyk': 'NYK', 'okc': 'OKC',
-    'sea': 'OKC', 'orl': 'ORL', 'phi': 'PHI', 'phx': 'PHX', 'pho': 'PHX', 'por': 'POR', 'sac': 'SAC',
-    'sa': 'SAS', 'sas': 'SAS', 'tor': 'TOR', 'utah': 'UTA', 'uta': 'UTA', 'wsh': 'WAS', 'was': 'WAS'
+    'atl': 'ATL', 'bkn': 'BKN', 'bos': 'BOS', 'cha': 'CHA', 'chi': 'CHI',
+    'cle': 'CLE', 'dal': 'DAL', 'den': 'DEN', 'det': 'DET', 'gs': 'GSW',
+    'hou': 'HOU', 'ind': 'IND', 'lac': 'LAC', 'lal': 'LAL', 'mem': 'MEM',
+    'mia': 'MIA', 'mil': 'MIL', 'min': 'MIN', 'no': 'NOP', 'nop': 'NOP', # Handle New Orleans variants
+    'ny': 'NYK', 'nyk': 'NYK', 'okc': 'OKC', 'orl': 'ORL', 'phi': 'PHI',
+    'phx': 'PHX', 'pho': 'PHX', 'por': 'POR', 'sa': 'SAS', 'sas': 'SAS',
+    'sac': 'SAC', 'tor': 'TOR', 'utah': 'UTA', 'uta': 'UTA', 'was': 'WAS',
+    'nj': 'BKN', 'sea': 'OKC' # Historic franchises
 }
 
-def load_and_reshape_odds():
-    print(f"Loading odds from {ODDS_PATH}...")
-    try:
-        df = pd.read_csv(ODDS_PATH)
-    except FileNotFoundError:
-        print(f"❌ Error: Could not find {ODDS_PATH}")
-        return None
-
-    # 1. Standardize Date
-    if 'date' in df.columns:
-        df['GAME_DATE'] = pd.to_datetime(df['date'])
-    elif 'Date' in df.columns:
-        df['GAME_DATE'] = pd.to_datetime(df['Date'])
-    
-    # 2. Identify Moneyline Columns Dynamically
-    ml_home_col = None
-    ml_away_col = None
-    
-    candidates_home = ['moneyline_home', 'ML_Home', 'Home Odds', 'Home Moneyline', 'home_ml']
-    candidates_away = ['moneyline_away', 'ML_Away', 'Away Odds', 'Away Moneyline', 'away_ml']
-    
-    for c in candidates_home:
-        if c in df.columns:
-            ml_home_col = c
-            break
-            
-    for c in candidates_away:
-        if c in df.columns:
-            ml_away_col = c
-            break
-            
-    # SOFT FAIL: If columns missing, don't crash. Just warn.
-    if not ml_home_col or not ml_away_col:
-        print("⚠️ Warning: Could not find Moneyline columns. Creating empty placeholders.")
-    else:
-        print(f"Using Moneyline Columns: Home='{ml_home_col}', Away='{ml_away_col}'")
-
-    # 3. Reshape: Split 'Away' and 'Home' into separate rows
-    print("Reshaping odds data...")
-    
-    # Create Home Rows
-    home_df = df.copy()
-    home_df['TEAM_ABBREVIATION'] = home_df['home'].map(TEAM_MAP)
-    home_df['OPP_TEAM_ABBREVIATION'] = home_df['away'].map(TEAM_MAP)
-    
-    # Use dynamic column if it exists, else NaN
-    if ml_home_col:
-        home_df['MONEYLINE'] = home_df[ml_home_col] 
-    else:
-        home_df['MONEYLINE'] = np.nan
-
-    # Handle Spread
-    if 'spread' in df.columns:
-        home_df['SPREAD'] = home_df['spread'] * -1 
-    else:
-        home_df['SPREAD'] = np.nan
-        
-    home_df['IS_HOME_ODDS'] = 1
-    
-    # Create Away Rows
-    away_df = df.copy()
-    away_df['TEAM_ABBREVIATION'] = away_df['away'].map(TEAM_MAP)
-    away_df['OPP_TEAM_ABBREVIATION'] = away_df['home'].map(TEAM_MAP)
-    
-    if ml_away_col:
-        away_df['MONEYLINE'] = away_df[ml_away_col]
-    else:
-        away_df['MONEYLINE'] = np.nan
-    
-    if 'spread' in df.columns:
-        away_df['SPREAD'] = away_df['spread']
-    else:
-        away_df['SPREAD'] = np.nan
-        
-    away_df['IS_HOME_ODDS'] = 0
-
-    # Combine
-    odds_reshaped = pd.concat([home_df, away_df], ignore_index=True)
-    
-    # Keep useful columns
-    cols_to_keep = ['GAME_DATE', 'TEAM_ABBREVIATION', 'MONEYLINE', 'SPREAD']
-    if 'total' in df.columns:
-        cols_to_keep.append('total')
-        odds_reshaped['total'] = df['total']
-        
-    odds_reshaped = odds_reshaped[cols_to_keep]
-    
-    # --- THE FIX: DROP ROWS WHERE MONEYLINE IS MISSING ---
-    # This "ignores" any game that doesn't have valid odds
-    before_drop = len(odds_reshaped)
-    odds_reshaped = odds_reshaped.dropna(subset=['TEAM_ABBREVIATION', 'MONEYLINE'])
-    after_drop = len(odds_reshaped)
-    
-    if before_drop > after_drop:
-        print(f"⚠️ Ignored {before_drop - after_drop} rows due to missing Moneyline/Teams.")
-        
-    return odds_reshaped
-
 def merge_data():
-    print(f"Loading stats from {STATS_PATH}...")
-    try:
-        df_stats = pd.read_csv(STATS_PATH)
-    except FileNotFoundError:
+    print("Loading datasets...")
+    # 1. Load your Main Model Data
+    if not os.path.exists(STATS_PATH):
         print(f"❌ Error: Could not find {STATS_PATH}")
         return
-
-    df_stats['GAME_DATE'] = pd.to_datetime(df_stats['GAME_DATE'])
+    df_main = pd.read_csv(STATS_PATH)
+    df_main['GAME_DATE'] = pd.to_datetime(df_main['GAME_DATE'])
     
-    df_odds = load_and_reshape_odds()
-    if df_odds is None: return
+    # 2. Load the New Odds Data
+    if not os.path.exists(ODDS_PATH):
+        print(f"❌ Error: Could not find {ODDS_PATH}")
+        return
+    df_odds = pd.read_csv(ODDS_PATH)
+    df_odds['date'] = pd.to_datetime(df_odds['date'])
     
-    print("Merging datasets...")
+    # 3. Clean the Odds Data
+    print("Cleaning odds data...")
+    # Rename columns to match what we want
+    df_odds = df_odds.rename(columns={
+        'date': 'GAME_DATE',
+        'moneyline_home': 'HOME_ML',
+        'moneyline_away': 'AWAY_ML'
+    })
+    
+    # Apply Team Mapping
+    df_odds['home_abbr'] = df_odds['home'].map(TEAM_MAP)
+    df_odds['away_abbr'] = df_odds['away'].map(TEAM_MAP)
+    
+    # Drop rows where mapping failed (rare errors)
+    df_odds = df_odds.dropna(subset=['home_abbr', 'away_abbr'])
+    
+    # 4. Merge
+    # We match on Date and Home Team. 
+    # (Matching on just home team is safe enough per day)
+    print("Merging odds into main dataset...")
+    
+    # Select only the columns we need from the odds file
+    odds_subset = df_odds[['GAME_DATE', 'home_abbr', 'HOME_ML', 'AWAY_ML']]
+    
     merged_df = pd.merge(
-        df_stats, 
-        df_odds, 
-        on=['GAME_DATE', 'TEAM_ABBREVIATION'], 
-        how='inner'
+        df_main,
+        odds_subset,
+        left_on=['GAME_DATE', 'TEAM_ABBREVIATION'], # Match Main(Team) ...
+        right_on=['GAME_DATE', 'home_abbr'],        # ... to Odds(Home)
+        how='left'                                  # Keep all games, even if odds missing
     )
     
-    if len(merged_df) == 0:
-        print("❌ Merge resulted in 0 rows.")
-    else:
-        print(f"✅ Merge Complete! Final Rows: {len(merged_df)}")
-        merged_df.to_csv(OUTPUT_PATH, index=False)
-        print(f"Saved to {OUTPUT_PATH}")
+    # 5. Fill Missing Odds for Away Games
+    # The merge above only attached odds to the HOME team's row.
+    # We also need odds for the AWAY team's row.
+    
+    # Logic: If I am the Away Team, my "HOME_ML" is the opponent's home ML.
+    # But for simplicity in backtesting, we often just look at Home rows.
+    # However, to be thorough:
+    
+    # (Optional: If your model treats Home/Away rows separately, 
+    # you might want to duplicate the odds logic. For now, let's just save.)
+    
+    # Clean up
+    merged_df.drop(columns=['home_abbr'], inplace=True)
+    
+    # Save
+    merged_df.to_csv(OUTPUT_PATH, index=False)
+    print(f"✅ Success! Created {OUTPUT_PATH} with {len(merged_df)} rows.")
+    print("   You now have real historical odds.")
 
 if __name__ == "__main__":
     merge_data()

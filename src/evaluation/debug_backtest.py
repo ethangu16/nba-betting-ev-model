@@ -1,103 +1,82 @@
 import pandas as pd
-import xgboost as xgb
-import numpy as np
-import joblib
+import os
 
-# CONFIGURATION
-DATA_PATH = 'data/processed/nba_model_ready.csv'
-MODEL_PATH = 'models/nba_xgb_model.json' # Check if it's .json or .joblib
+# --- PATHS ---
+STATS_PATH = 'data/processed/nba_model.csv'       # Your engineered features
+ODDS_PATH = 'data/odds/nba_2008-2025.csv'                   # Your new odds file
 
-def get_implied_prob(moneyline):
-    if moneyline < 0: return (-moneyline) / (-moneyline + 100)
-    else: return 100 / (moneyline + 100)
+# --- TEAM MAP (Same as merge script) ---
+TEAM_MAP = {
+    'atl': 'ATL', 'bkn': 'BKN', 'bos': 'BOS', 'cha': 'CHA', 'chi': 'CHI',
+    'cle': 'CLE', 'dal': 'DAL', 'den': 'DEN', 'det': 'DET', 'gs': 'GSW',
+    'hou': 'HOU', 'ind': 'IND', 'lac': 'LAC', 'lal': 'LAL', 'mem': 'MEM',
+    'mia': 'MIA', 'mil': 'MIL', 'min': 'MIN', 'no': 'NOP', 'nop': 'NOP', 
+    'ny': 'NYK', 'nyk': 'NYK', 'okc': 'OKC', 'orl': 'ORL', 'phi': 'PHI',
+    'phx': 'PHX', 'pho': 'PHX', 'por': 'POR', 'sa': 'SAS', 'sas': 'SAS',
+    'sac': 'SAC', 'tor': 'TOR', 'utah': 'UTA', 'uta': 'UTA', 'was': 'WAS',
+    'nj': 'BKN', 'sea': 'OKC' 
+}
 
 def debug():
-    print(f"--- DIAGNOSTIC BACKTEST ---")
+    print("--- 🔍 MERGE DIAGNOSTIC TOOL ---")
     
-    # 1. Check Data Volume
-    try:
-        df = pd.read_csv(DATA_PATH)
-        print(f"Total Rows in Dataset: {len(df)}")
-    except FileNotFoundError:
-        print("❌ Error: nba_model_ready.csv not found.")
-        return
-
-    # 2. Check Test Split
-    split_index = int(len(df) * 0.80)
-    test_df = df.iloc[split_index:].copy()
-    print(f"Test Set Size (Last 20%): {len(test_df)} games")
+    # 1. Load Data
+    if not os.path.exists(STATS_PATH): print(f"❌ Missing {STATS_PATH}"); return
+    if not os.path.exists(ODDS_PATH): print(f"❌ Missing {ODDS_PATH}"); return
     
-    if len(test_df) == 0:
-        print("❌ Error: Test Set is empty! Your dataset is too small.")
-        return
-
-    # 3. Check Odds Data
-    if 'MONEYLINE' not in test_df.columns:
-        print("❌ Error: 'MONEYLINE' column missing.")
-        return
-        
-    missing_odds = test_df['MONEYLINE'].isna().sum()
-    print(f"Rows with missing Moneyline: {missing_odds}")
+    df_stats = pd.read_csv(STATS_PATH)
+    df_odds = pd.read_csv(ODDS_PATH)
     
-    if missing_odds == len(test_df):
-        print("❌ Error: All odds are NaN. Backtest cannot run.")
-        return
-
-    # 4. Check Model Predictions & Edge
-    print("\n--- CHECKING PREDICTIONS ---")
-    try:
-        model = xgb.XGBClassifier()
-        model.load_model('models/nba_xgb_model.json')
-    except:
-        try:
-            model = joblib.load('models/nba_xgb_model.joblib')
-        except:
-            print("❌ Error: Could not load model.")
-            return
-
-    # Features (Must match training!)
-    features = [
-        'ELO_TEAM', 'ELO_OPP', 
-        'REST_DAYS', 'TRAVEL_MILES', 'IS_HOME',
-        'ROLL_PTS', 'ROLL_EFG_PCT', 'ROLL_TOV_PCT', 
-        'ROLL_ORB_PCT', 'ROLL_FTR', 'ROLL_PLUS_MINUS'
+    # 2. Inspect DATES
+    print("\n[1] DATE FORMAT CHECK")
+    print(f"Stats File Date Example: {df_stats['GAME_DATE'].iloc[0]} (Type: {type(df_stats['GAME_DATE'].iloc[0])})")
+    print(f"Odds File Date Example:  {df_odds['date'].iloc[0]} (Type: {type(df_odds['date'].iloc[0])})")
+    
+    # Normalize for test
+    df_stats['GAME_DATE_DT'] = pd.to_datetime(df_stats['GAME_DATE']).dt.normalize()
+    df_odds['date_dt'] = pd.to_datetime(df_odds['date']).dt.normalize()
+    
+    # 3. Inspect TEAMS
+    print("\n[2] TEAM NAME CHECK")
+    stats_teams = sorted(df_stats['TEAM_ABBREVIATION'].unique())[:5]
+    print(f"Stats File Teams (First 5): {stats_teams}")
+    
+    # Apply map to odds to see if it works
+    df_odds['mapped_home'] = df_odds['home'].map(TEAM_MAP)
+    odds_teams = sorted(df_odds['mapped_home'].dropna().unique())[:5]
+    print(f"Odds File Mapped Teams (First 5): {odds_teams}")
+    
+    # 4. TRY TO MATCH A SPECIFIC GAME
+    print("\n[3] MATCH ATTEMPT")
+    # Pick the last game from stats (most recent)
+    sample_game = df_stats.iloc[-1]
+    target_date = sample_game['GAME_DATE_DT']
+    target_team = sample_game['TEAM_ABBREVIATION']
+    
+    print(f"Attempting to find match for: {target_date.date()} - {target_team}")
+    
+    # Look for it in odds
+    match = df_odds[
+        (df_odds['date_dt'] == target_date) & 
+        (df_odds['mapped_home'] == target_team)
     ]
     
-    # Generate Probs
-    try:
-        probs = model.predict_proba(test_df[features])[:, 1]
-    except Exception as e:
-        print(f"❌ Prediction Error: {e}")
-        print(f"Expected Features: {features}")
-        print(f"Found Features: {test_df.columns.tolist()}")
-        return
-
-    test_df['MODEL_PROB'] = probs
-    
-    # Calculate Edges
-    edges = []
-    for _, row in test_df.iterrows():
-        odds = row['MONEYLINE']
-        if pd.isna(odds): continue
-        
-        implied = get_implied_prob(odds)
-        edge = row['MODEL_PROB'] - implied
-        edges.append(edge)
-    
-    edges = np.array(edges)
-    
-    print(f"Min Edge: {edges.min():.4f}")
-    print(f"Max Edge: {edges.max():.4f}")
-    print(f"Avg Edge: {edges.mean():.4f}")
-    
-    potential_bets = (edges > 0.01).sum()
-    print(f"\nPotential Bets (Edge > 1%): {potential_bets}")
-    
-    if potential_bets == 0:
-        print("⚠️ PROBLEM: Your model is 'hugging' the market line too closely.")
-        print("Try lowering the threshold in backtest.py to > 0.00 (0%).")
+    if len(match) > 0:
+        print("✅ SUCCESS! Found this match in odds file:")
+        print(match[['date', 'home', 'moneyline_home']])
     else:
-        print("✅ Bets exist! If backtest.py shows 0, check your logic loop.")
+        print("❌ FAILED. Could not find this game in odds file.")
+        # Help user debug WHY
+        print("  ... Checking if date exists in odds file?")
+        date_match = df_odds[df_odds['date_dt'] == target_date]
+        if len(date_match) > 0:
+            print(f"  ✅ Yes, found {len(date_match)} games on {target_date.date()}.")
+            print(f"  Teams playing that day: {date_match['mapped_home'].unique()}")
+            print(f"  We were looking for: {target_team}")
+            print("  ⚠️ MAPPING ISSUE likely. Check TEAM_MAP.")
+        else:
+            print(f"  ❌ No. The date {target_date.date()} is NOT in the odds file.")
+            print(f"  Odds file date range: {df_odds['date_dt'].min().date()} to {df_odds['date_dt'].max().date()}")
 
 if __name__ == "__main__":
     debug()

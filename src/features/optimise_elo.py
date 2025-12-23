@@ -4,7 +4,7 @@ from sklearn.metrics import log_loss
 import math
 
 # Load Data
-df = pd.read_csv('data/processed/nba_final_dataset.csv')
+df = pd.read_csv('data/processed/nba_model.csv')
 df['GAME_DATE'] = pd.to_datetime(df['GAME_DATE'])
 df = df.sort_values('GAME_DATE')
 

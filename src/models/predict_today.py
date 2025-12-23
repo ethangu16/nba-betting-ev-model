@@ -7,14 +7,13 @@ import sys
 
 # --- CONFIGURATION ---
 MODEL_PATH = 'models/nba_xgb_model.joblib' 
-STATS_PATH = 'data/processed/nba_model.csv'        # Created by engineer.py
-ODDS_PATH = 'data/odds/live_odds.csv'              # Must contain today's odds
-PLAYER_PATH = 'data/processed/processed_player.csv' # Created by create_talent_pool.py
-INJURY_PATH = 'data/raw/espn_injuries_current.csv'   # Created by scrape_espn_injuries_v3.py
+STATS_PATH = 'data/processed/nba_model.csv'        
+ODDS_PATH = 'data/odds/live_odds.csv'              
+PLAYER_PATH = 'data/processed/processed_player.csv' 
+INJURY_PATH = 'data/raw/espn_injuries_current.csv'   
 OUTPUT_PATH = 'results/todays_bets.csv'
 
-# --- NAME MAPPING (Global) ---
-# Maps Odds/Injury names -> Stats abbreviations
+# --- NAME MAPPING ---
 NAME_MAP = {
     "Atlanta Hawks": "ATL", "Boston Celtics": "BOS", "Brooklyn Nets": "BKN", "Charlotte Hornets": "CHA",
     "Chicago Bulls": "CHI", "Cleveland Cavaliers": "CLE", "Dallas Mavericks": "DAL", "Denver Nuggets": "DEN",
@@ -29,84 +28,83 @@ NAME_MAP = {
 # --- 1. HELPER FUNCTIONS ---
 
 def load_injury_report():
-    """
-    Reads injury CSV and filters strictly for status='Out'.
-    """
     if not os.path.exists(INJURY_PATH):
-        print(f"⚠️ Warning: No injury file found at {INJURY_PATH}")
         return {}
-        
     try:
         df = pd.read_csv(INJURY_PATH)
+        df.columns = df.columns.str.lower().str.strip()
         
-        # FIX: Simple String Check. If 'status' contains "Out", they are out.
-        out_players = df[df['description'].astype(str).str.lower().str.contains('out')]
+        status_col = None
+        for col in ['status', 'description', 'severity']:
+            if col in df.columns and df[col].astype(str).str.contains('Out', case=False).any():
+                status_col = col
+                break
+        status_col = status_col if status_col else 'status'
+
+        if status_col not in df.columns: return {}
+
+        out_players = df[df[status_col].astype(str).str.lower().str.contains('out')]
         
-        # Create Dictionary: {'Boston Celtics': ['Jayson Tatum', ...]}
-        # We assume column names from scrape_espn_injuries_v3.py (TEAM, PLAYER)
-        raw_dict = out_players.groupby('team')['player_name'].apply(list).to_dict()
+        team_col = 'team' if 'team' in df.columns else 'team_name'
+        player_col = 'player_name' if 'player_name' in df.columns else 'player'
         
-        final_dict = {}
-        for team_name, players in raw_dict.items():
-            # Convert "Atlanta Hawks" -> "ATL" using our map
-            abbr = NAME_MAP.get(team_name, team_name) 
-            final_dict[abbr] = players
-            
+        raw_dict = out_players.groupby(team_col)[player_col].apply(list).to_dict()
+        final_dict = {NAME_MAP.get(k, k): v for k, v in raw_dict.items()}
         print(f"✅ Loaded Injury Report: {len(final_dict)} teams have players OUT.")
         return final_dict
-        
-    except Exception as e:
-        print(f"❌ Error reading injury file: {e}")
+    except:
         return {}
 
 def get_roster_strength_simulation(team_abbr, injury_list, df_players):
-    """
-    Simulates the strength of the team TONIGHT by removing injured players
-    and redistributing their minutes to the bench.
-    """
-    # Filter for this team
     roster = df_players[df_players['TEAM_ABBREVIATION'] == team_abbr].copy()
-    
-    if roster.empty:
-        # If we have no player data for a team (rare), return 0 so we skip the prediction safely
-        return 0 
+    if roster.empty: return 0 
 
-    # 1. Remove Injured Players
-    # Note: df_players has 'PLAYER_NAME', injury_list has names from ESPN.
-    # We use .isin() for exact matches. 
-    roster = roster[~roster['PLAYER_NAME'].isin(injury_list)]
+    if injury_list:
+        roster = roster[~roster['PLAYER_NAME'].isin(injury_list)]
     
-    # 2. Calculate Productivity Per Minute (PPM)
-    # Avoid division by zero
     roster['MIN_AVG'] = roster['MIN_AVG'].replace(0, 1)
     roster['PPM'] = roster['GAME_SCORE_AVG'] / roster['MIN_AVG']
     
-    # 3. Select Rotation (Top 9 remaining players)
     rotation = roster.sort_values('MIN_AVG', ascending=False).head(9).copy()
     
-    # 4. Redistribute Minutes (The "240-Minute Container")
     total_avg_minutes = rotation['MIN_AVG'].sum()
-    target_minutes = 240
+    scaling = 240 / total_avg_minutes if total_avg_minutes > 0 else 1.0
     
-    # If the remaining players usually only play 180 mins total, we scale them up
-    scaling_factor = target_minutes / total_avg_minutes if total_avg_minutes > 0 else 1.0
-    
-    rotation['PROJ_MIN'] = rotation['MIN_AVG'] * scaling_factor
-    
-    # Cap minutes at 42 (Human limit) so a bench warmer doesn't play 48 mins
-    rotation['PROJ_MIN'] = rotation['PROJ_MIN'].clip(upper=42)
-    
-    # 5. Calculate Final Score
+    rotation['PROJ_MIN'] = (rotation['MIN_AVG'] * scaling).clip(upper=42)
     rotation['PROJ_SCORE'] = rotation['PPM'] * rotation['PROJ_MIN']
     
-    # Efficiency Tax: Teams play slightly worse when forced to stretch lineups
-    tax = 0.95 
-    return rotation['PROJ_SCORE'].sum() * tax
+    return rotation['PROJ_SCORE'].sum() * 0.95 
 
-def get_implied_prob(moneyline):
-    if pd.isna(moneyline) or moneyline == 0: return 0.5
-    if moneyline < 0: return (-moneyline) / (-moneyline + 100)
-    return 100 / (moneyline + 100)
+def run_monte_carlo(home_team, away_team, df_players, n_sims=1000):
+    h_roster = df_players[df_players['TEAM_ABBREVIATION'] == home_team]
+    a_roster = df_players[df_players['TEAM_ABBREVIATION'] == away_team]
+    
+    if h_roster.empty or a_roster.empty: return 0.5
+    
+    h_avg = h_roster['GAME_SCORE_AVG'].values
+    h_std = h_roster.get('GAME_SCORE_STD', pd.Series([8]*len(h_roster))).fillna(8).values
+    
+    a_avg = a_roster['GAME_SCORE_AVG'].values
+    a_std = a_roster.get('GAME_SCORE_STD', pd.Series([8]*len(a_roster))).fillna(8).values
+    
+    h_sims = np.random.normal(h_avg[:, None], h_std[:, None], (len(h_avg), n_sims))
+    a_sims = np.random.normal(a_avg[:, None], a_std[:, None], (len(a_avg), n_sims))
+    
+    h_score = h_sims.sum(axis=0) + 3 # +3 Home Court
+    a_score = a_sims.sum(axis=0)
+    
+    return (h_score > a_score).sum() / n_sims
+
+def get_kelly_bet(prob_win, decimal_odds, bankroll=1000):
+    b = decimal_odds - 1
+    p = prob_win
+    q = 1.0 - p
+    f = (b * p - q) / b
+    
+    if f > 0:
+        return bankroll * f * 0.35 # 35% Kelly Fraction
+    else:
+        return 0.0
 
 # --- 2. MAIN EXECUTION ---
 
@@ -121,111 +119,125 @@ def predict():
         print(f"❌ Critical Error: {e}")
         return
 
-    # Load Injuries
     current_injuries = load_injury_report()
     predictions = []
     
     print(f"\n--- 2. PREDICTING {len(df_odds)} GAMES ---")
     
-    # Helper to find latest stats for a team
     def get_last_stats(abbr):
         subset = df_stats[df_stats['TEAM_ABBREVIATION'] == abbr]
         if subset.empty: return None
         return subset.iloc[-1]
 
     for index, row in df_odds.iterrows():
-        # Map Full Names to Abbreviations
-        home_raw = row.get('HOME_TEAM')
-        away_raw = row.get('AWAY_TEAM')
-        
-        home_abbr = NAME_MAP.get(home_raw, home_raw) # "Boston Celtics" -> "BOS"
+        home_raw, away_raw = row.get('HOME_TEAM'), row.get('AWAY_TEAM')
+        home_abbr = NAME_MAP.get(home_raw, home_raw)
         away_abbr = NAME_MAP.get(away_raw, away_raw)
         
-        # Get Historical Stats (Elo, Rolling Points, etc.)
         home_hist = get_last_stats(home_abbr)
-        if home_hist is None:
-            print(f"Skipping {home_abbr} (Name not found in Stats file)")
+        away_hist = get_last_stats(away_abbr) 
+        
+        if home_hist is None or away_hist is None:
             continue
 
-        # --- THE CORE LOGIC: SIMULATE TONIGHT'S ROSTER ---
+        # --- SIMULATION ---
         h_out = current_injuries.get(home_abbr, [])
         h_strength = get_roster_strength_simulation(home_abbr, h_out, df_players)
         
         a_out = current_injuries.get(away_abbr, [])
         a_strength = get_roster_strength_simulation(away_abbr, a_out, df_players)
         
-        if h_strength == 0 or a_strength == 0:
-            print(f"Skipping {home_abbr} vs {away_abbr} (Player data missing)")
-            continue
+        h_avg_str = home_hist['ROLL_ROSTER_TALENT_SCORE'] if home_hist['ROLL_ROSTER_TALENT_SCORE'] > 10 else 150
+        a_avg_str = away_hist['ROLL_ROSTER_TALENT_SCORE'] if away_hist['ROLL_ROSTER_TALENT_SCORE'] > 10 else 150
 
-        # Build the exact same Feature Row used in training
-        # IMPORTANT: 'ROLL_ROSTER_TALENT_SCORE' is swapped with our simulation
+        h_health = h_strength / h_avg_str
+        a_health = a_strength / a_avg_str
+        
+        # INJURY PENALTY (250 pts)
+        h_elo_adj = home_hist['ELO_TEAM'] - ((1 - h_health) * 250)
+        a_elo_adj = away_hist['ELO_TEAM'] - ((1 - a_health) * 250)
+
         feature_row = pd.DataFrame([{
-            'ELO_TEAM': home_hist['ELO_TEAM'],
-            'ELO_OPP': 1500, # Ideally fetch away_hist['ELO_TEAM']
-            'REST_DAYS': 1,
-            'TRAVEL_MILES': 0,
+            'ELO_TEAM': h_elo_adj,
+            'ELO_OPP': a_elo_adj,
             'IS_HOME': 1,
-            'ROLL_PTS': home_hist['ROLL_PTS'],
+            'IS_B2B': home_hist.get('IS_B2B', 0),
+            'IS_3IN4': home_hist.get('IS_3IN4', 0),
+            'ROLL_OFF_RTG': home_hist['ROLL_OFF_RTG'], 
+            'ROLL_DEF_RTG': home_hist['ROLL_DEF_RTG'], 
+            'ROLL_PACE': home_hist['ROLL_PACE'],       
             'ROLL_EFG_PCT': home_hist['ROLL_EFG_PCT'],
             'ROLL_TOV_PCT': home_hist['ROLL_TOV_PCT'],
             'ROLL_ORB_PCT': home_hist['ROLL_ORB_PCT'],
             'ROLL_FTR': home_hist['ROLL_FTR'],
-            'ROLL_PLUS_MINUS': home_hist['ROLL_PLUS_MINUS'],
-            'ROLL_ROSTER_TALENT_SCORE': h_strength 
+            'ROLL_ROSTER_TALENT_SCORE': h_strength
         }])
         
-        # Run Model
-        prob_home = model.predict_proba(feature_row)[0][1]
+        # 1. Predictions
+        prob_home_xgb = model.predict_proba(feature_row)[0][1]
+        prob_home_mc = run_monte_carlo(home_abbr, away_abbr, df_players)
         
-        # Calculate Value
+        final_prob_home = (0.7 * prob_home_xgb) + (0.3 * prob_home_mc)
+        final_prob_away = 1.0 - final_prob_home  # Away Probability
+        
+        # 2. Odds Calculation
         home_ml = row.get('HOME_ML', 0)
         away_ml = row.get('AWAY_ML', 0)
         
-        implied_home = get_implied_prob(home_ml)
-        implied_away = get_implied_prob(away_ml)
+        dec_home = (home_ml/100 + 1) if home_ml > 0 else (100/abs(home_ml) + 1)
+        implied_home = 1 / dec_home
         
-        edge_home = prob_home - implied_home
-        edge_away = (1.0 - prob_home) - implied_away
+        dec_away = (away_ml/100 + 1) if away_ml > 0 else (100/abs(away_ml) + 1)
+        implied_away = 1 / dec_away
         
-        # Decision
+        # 3. Calculate Bets (Check BOTH sides)
+        bet_home = get_kelly_bet(final_prob_home, dec_home, 1000)
+        bet_away = get_kelly_bet(final_prob_away, dec_away, 1000)
+        
+        # 4. Decision Logic
         rec = "NO BET"
-        THRESHOLD = 0.02
+        edge_display = 0.0
+        final_prob_display = final_prob_home
+        implied_display = implied_home
         
-        if edge_home > THRESHOLD:
-            rec = f"BET HOME"
-        elif edge_away > THRESHOLD:
-            rec = f"BET AWAY"
+        if bet_home > 0:
+            rec = f"BET {home_abbr} ${bet_home:.2f}" # <--- UPDATED TO SHOW TEAM NAME
+            edge_display = final_prob_home - implied_home
+            final_prob_display = final_prob_home
+            implied_display = implied_home
             
+        elif bet_away > 0:
+            rec = f"BET {away_abbr} ${bet_away:.2f}" # <--- UPDATED TO SHOW TEAM NAME
+            edge_display = final_prob_away - implied_away
+            final_prob_display = final_prob_away
+            implied_display = implied_away
+
+        if rec == "NO BET":
+             edge_display = final_prob_home - implied_home
+
         predictions.append({
             'Game': f"{home_abbr} vs {away_abbr}",
-            'Home_Win%': f"{prob_home:.1%}",
-            'Edge_Home': f"{edge_home:.1%}",
-            'Edge_Away': f"{edge_away:.1%}",
-            'Rec': rec,
-            'H_Odds': home_ml,
-            'A_Odds': away_ml,
+            'Win_Prob': f"{final_prob_display:.1%}",
+            'Implied': f"{implied_display:.1%}",
+            'Edge': f"{edge_display:+.1%}",
+            'Kelly': rec,
             'Injuries': f"{len(h_out)} H / {len(a_out)} A"
         })
 
-    # --- 3. OUTPUT ---
-    print("\n" + "="*60)
-    print("TODAY'S BETTING CARD")
-    print("="*60)
-    
-    if not predictions:
-        print("❌ No valid games found. Check mappings or data files.")
-    else:
+    # --- OUTPUT ---
+    if predictions:
         results = pd.DataFrame(predictions)
         os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
         results.to_csv(OUTPUT_PATH, index=False)
-        
-        # Pretty Print
         pd.set_option('display.max_columns', None)
         pd.set_option('display.width', 1000)
-        view_cols = ['Game', 'Rec', 'Home_Win%', 'Edge_Home', 'Edge_Away', 'Injuries']
-        print(results[view_cols].to_string(index=False))
-        print("\n✅ Results saved to", OUTPUT_PATH)
+        print("\n" + "="*80)
+        print("TODAY'S BETTING CARD (KELLY 0.35x)")
+        print("="*80)
+        print(results[['Game', 'Kelly', 'Win_Prob', 'Implied', 'Edge', 'Injuries']].to_string(index=False))
+        print(f"\n✅ Saved to {OUTPUT_PATH}")
+    else:
+        print("❌ No games found.")
 
 if __name__ == "__main__":
     predict()
