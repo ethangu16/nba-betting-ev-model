@@ -1,21 +1,14 @@
 import pandas as pd
 import os
+import sys
+
+# Add parent directory to path for imports
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+from src.utils.team_mapping import normalize_team_name
 
 # --- PATHS ---
 STATS_PATH = 'data/processed/nba_model.csv'       # Your engineered features
 ODDS_PATH = 'data/odds/nba_2008-2025.csv'                   # Your new odds file
-
-# --- TEAM MAP (Same as merge script) ---
-TEAM_MAP = {
-    'atl': 'ATL', 'bkn': 'BKN', 'bos': 'BOS', 'cha': 'CHA', 'chi': 'CHI',
-    'cle': 'CLE', 'dal': 'DAL', 'den': 'DEN', 'det': 'DET', 'gs': 'GSW',
-    'hou': 'HOU', 'ind': 'IND', 'lac': 'LAC', 'lal': 'LAL', 'mem': 'MEM',
-    'mia': 'MIA', 'mil': 'MIL', 'min': 'MIN', 'no': 'NOP', 'nop': 'NOP', 
-    'ny': 'NYK', 'nyk': 'NYK', 'okc': 'OKC', 'orl': 'ORL', 'phi': 'PHI',
-    'phx': 'PHX', 'pho': 'PHX', 'por': 'POR', 'sa': 'SAS', 'sas': 'SAS',
-    'sac': 'SAC', 'tor': 'TOR', 'utah': 'UTA', 'uta': 'UTA', 'was': 'WAS',
-    'nj': 'BKN', 'sea': 'OKC' 
-}
 
 def debug():
     print("--- 🔍 MERGE DIAGNOSTIC TOOL ---")
@@ -42,7 +35,7 @@ def debug():
     print(f"Stats File Teams (First 5): {stats_teams}")
     
     # Apply map to odds to see if it works
-    df_odds['mapped_home'] = df_odds['home'].map(TEAM_MAP)
+    df_odds['mapped_home'] = df_odds['home'].apply(normalize_team_name)
     odds_teams = sorted(df_odds['mapped_home'].dropna().unique())[:5]
     print(f"Odds File Mapped Teams (First 5): {odds_teams}")
     

@@ -1,23 +1,15 @@
 import pandas as pd
 import os
+import sys
+
+# Add parent directory to path for imports
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+from src.utils.team_mapping import normalize_team_name
 
 # --- PATHS ---
 STATS_PATH = 'data/processed/nba_model.csv'      # Your current training data
 ODDS_PATH = 'data/odds/nba_2008-2025.csv'                  # Your NEW file (update path if needed)
 OUTPUT_PATH = 'data/processed/nba_model_with_odds.csv' # The final product
-
-# --- TEAM NAME MAPPING (New File -> Standard) ---
-# This maps the lowercase/short names in your new CSV to official NBA codes
-TEAM_MAP = {
-    'atl': 'ATL', 'bkn': 'BKN', 'bos': 'BOS', 'cha': 'CHA', 'chi': 'CHI',
-    'cle': 'CLE', 'dal': 'DAL', 'den': 'DEN', 'det': 'DET', 'gs': 'GSW',
-    'hou': 'HOU', 'ind': 'IND', 'lac': 'LAC', 'lal': 'LAL', 'mem': 'MEM',
-    'mia': 'MIA', 'mil': 'MIL', 'min': 'MIN', 'no': 'NOP', 'nop': 'NOP', # Handle New Orleans variants
-    'ny': 'NYK', 'nyk': 'NYK', 'okc': 'OKC', 'orl': 'ORL', 'phi': 'PHI',
-    'phx': 'PHX', 'pho': 'PHX', 'por': 'POR', 'sa': 'SAS', 'sas': 'SAS',
-    'sac': 'SAC', 'tor': 'TOR', 'utah': 'UTA', 'uta': 'UTA', 'was': 'WAS',
-    'nj': 'BKN', 'sea': 'OKC' # Historic franchises
-}
 
 def merge_data():
     print("Loading datasets...")
@@ -44,9 +36,9 @@ def merge_data():
         'moneyline_away': 'AWAY_ML'
     })
     
-    # Apply Team Mapping
-    df_odds['home_abbr'] = df_odds['home'].map(TEAM_MAP)
-    df_odds['away_abbr'] = df_odds['away'].map(TEAM_MAP)
+    # Apply Team Mapping using centralized function
+    df_odds['home_abbr'] = df_odds['home'].apply(normalize_team_name)
+    df_odds['away_abbr'] = df_odds['away'].apply(normalize_team_name)
     
     # Drop rows where mapping failed (rare errors)
     df_odds = df_odds.dropna(subset=['home_abbr', 'away_abbr'])

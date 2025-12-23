@@ -4,6 +4,7 @@ import os
 
 # --- CONFIGURATION ---
 INPUT_PATH = 'data/raw/nba_games_stats.csv'       # Ensure this points to your raw stats
+PLAYER_STATS_PATH = 'data/raw/nba_player_stats.csv'  # Player stats for roster strength
 OUTPUT_PATH = 'data/processed/nba_model.csv'         # Final Training File
 
 # PARAMETERS
@@ -67,25 +68,35 @@ def calculate_advanced_stats(df):
     # Formula: 0.96 * (FGA + TOV + 0.44*FTA - OREB)
     # We check if columns exist to avoid crashes
     req_cols = ['FGA', 'TOV', 'FTA', 'OREB', 'PTS', 'PLUS_MINUS']
-    for c in req_cols:
-        if c not in df.columns:
-            print(f"⚠️ Missing {c} for advanced stats. Skipping.")
-            return df
+    missing_cols = [c for c in req_cols if c not in df.columns]
+    if missing_cols:
+        print(f"⚠️ Missing columns for advanced stats: {missing_cols}")
+        print("   Some features may be incomplete. Continuing with available data...")
+        # Don't return early - continue with what we have
 
-    df['POSS_EST'] = 0.96 * (df['FGA'] + df['TOV'] + 0.44 * df['FTA'] - df['OREB'])
-    
-    # 2. Calculate Pace (Possessions per 48 Minutes)
-    # We use MIN/5 because MIN is usually total player minutes (e.g. 240 for a full game)
-    # If MIN is game duration (48), just use MIN. 
-    # Usually in NBA data, 'MIN' for a team row is ~240.
-    df['PACE'] = 48 * (df['POSS_EST'] / (df['MIN_CLEAN'] / 5))
-    
-    # 3. Calculate Efficiency (Per 100 Possessions)
-    df['OFF_RTG'] = 100 * (df['PTS'] / df['POSS_EST'])
-    
-    # Derived Points Allowed (PTS - PLUS_MINUS)
-    df['PTS_ALLOWED'] = df['PTS'] - df['PLUS_MINUS']
-    df['DEF_RTG'] = 100 * (df['PTS_ALLOWED'] / df['POSS_EST'])
+    # Only calculate if we have the required columns
+    if all(c in df.columns for c in req_cols):
+        df['POSS_EST'] = 0.96 * (df['FGA'] + df['TOV'] + 0.44 * df['FTA'] - df['OREB'])
+        
+        # 2. Calculate Pace (Possessions per 48 Minutes)
+        # We use MIN/5 because MIN is usually total player minutes (e.g. 240 for a full game)
+        # If MIN is game duration (48), just use MIN. 
+        # Usually in NBA data, 'MIN' for a team row is ~240.
+        df['PACE'] = 48 * (df['POSS_EST'] / (df['MIN_CLEAN'] / 5))
+        
+        # 3. Calculate Efficiency (Per 100 Possessions)
+        df['OFF_RTG'] = 100 * (df['PTS'] / df['POSS_EST'])
+        
+        # Derived Points Allowed (PTS - PLUS_MINUS)
+        df['PTS_ALLOWED'] = df['PTS'] - df['PLUS_MINUS']
+        df['DEF_RTG'] = 100 * (df['PTS_ALLOWED'] / df['POSS_EST'])
+    else:
+        # Set defaults if we can't calculate
+        df['POSS_EST'] = 100  # Default estimate
+        df['PACE'] = 100
+        df['OFF_RTG'] = 100
+        df['DEF_RTG'] = 100
+        df['PTS_ALLOWED'] = df.get('PTS', 100) - df.get('PLUS_MINUS', 0)
     
     return df
 
@@ -119,8 +130,90 @@ def add_fatigue_features(df):
     return df
 
 def calculate_roster_strength(df_games):
-    print("Initializing Roster Strength column...")
-    df_games['ROSTER_TALENT_SCORE'] = 0
+    """
+    Calculate roster strength by aggregating player talent scores for each team/game.
+    Uses rolling average of player game scores up to that date.
+    """
+    print("Calculating Roster Strength from player stats...")
+    
+    # Check if player stats file exists
+    if not os.path.exists(PLAYER_STATS_PATH):
+        print(f"⚠️ Warning: {PLAYER_STATS_PATH} not found. Setting ROSTER_TALENT_SCORE to 0.")
+        df_games['ROSTER_TALENT_SCORE'] = 0
+        return df_games
+    
+    try:
+        # Load player stats
+        df_players = pd.read_csv(PLAYER_STATS_PATH)
+        
+        # Ensure GAME_DATE is datetime
+        df_players['GAME_DATE'] = pd.to_datetime(df_players['GAME_DATE'])
+        df_games['GAME_DATE'] = pd.to_datetime(df_games['GAME_DATE'])
+        
+        # Calculate Hollinger Game Score for each player game
+        required_player_cols = ['PTS', 'FGM', 'FGA', 'FTA', 'FTM', 'OREB', 'DREB', 
+                                'STL', 'AST', 'BLK', 'PF', 'TOV']
+        if all(col in df_players.columns for col in required_player_cols):
+            df_players['GAME_SCORE'] = (
+                df_players['PTS'] + 
+                0.4 * df_players['FGM'] - 
+                0.7 * df_players['FGA'] - 
+                0.4 * (df_players['FTA'] - df_players['FTM']) + 
+                0.7 * df_players['OREB'] + 
+                0.3 * df_players['DREB'] + 
+                df_players['STL'] + 
+                0.7 * df_players['AST'] + 
+                0.7 * df_players['BLK'] - 
+                0.4 * df_players['PF'] - 
+                df_players['TOV']
+            )
+        else:
+            print("⚠️ Missing player stat columns. Using PTS as proxy for game score.")
+            df_players['GAME_SCORE'] = df_players.get('PTS', 0)
+        
+        # Calculate rolling average game score for each player (up to each game date)
+        df_players = df_players.sort_values(['PLAYER_ID', 'GAME_DATE'])
+        df_players['PLAYER_AVG_SCORE'] = df_players.groupby('PLAYER_ID')['GAME_SCORE'].transform(
+            lambda x: x.shift(1).expanding().mean()  # Rolling average up to (but not including) current game
+        )
+        
+        # For each game, aggregate roster strength
+        # Get the top 9 players by average game score for each team on each date
+        roster_scores = []
+        
+        for idx, row in df_games.iterrows():
+            team = row['TEAM_ABBREVIATION']
+            game_date = row['GAME_DATE']
+            
+            # Get all players on this team who played before or on this date
+            team_players = df_players[
+                (df_players['TEAM_ABBREVIATION'] == team) & 
+                (df_players['GAME_DATE'] <= game_date)
+            ]
+            
+            if team_players.empty:
+                roster_scores.append(0)
+                continue
+            
+            # Get the most recent average score for each player (up to this date)
+            player_scores = team_players.groupby('PLAYER_ID')['PLAYER_AVG_SCORE'].last()
+            
+            # Take top 9 players and sum their scores
+            top_players = player_scores.nlargest(9)
+            roster_score = top_players.sum()
+            
+            # Scale to approximate full game contribution (240 minutes total)
+            # This is a rough estimate - actual would need minute projections
+            roster_scores.append(roster_score * 0.95)  # Slight discount for bench depth
+        
+        df_games['ROSTER_TALENT_SCORE'] = roster_scores
+        print(f"✅ Calculated roster strength for {len(df_games)} games.")
+        
+    except Exception as e:
+        print(f"⚠️ Error calculating roster strength: {e}")
+        print("   Setting ROSTER_TALENT_SCORE to 0.")
+        df_games['ROSTER_TALENT_SCORE'] = 0
+    
     return df_games
 
 def create_rolling_features(df):
