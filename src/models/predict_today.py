@@ -8,6 +8,12 @@ import sys
 # Add parent directory to path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 from src.utils.team_mapping import normalize_team_name
+from src.utils.betting_advanced import (
+    calculate_confidence_interval,
+    calculate_expected_value,
+    calculate_market_efficiency_score,
+    calculate_bankroll_risk
+)
 
 # --- CONFIGURATION ---
 MODEL_PATH = 'models/nba_xgb_model.joblib' 
@@ -280,32 +286,26 @@ def predict():
         print(f"❌ Critical Error: {e}")
         return
 
-    # Filter to only today's games
+    # Parse dates but don't filter - show all games
     df_odds['GAME_DATE'] = pd.to_datetime(df_odds['GAME_DATE'])
-    today = datetime.now(timezone.utc).date()
-    df_odds['GAME_DATE_ONLY'] = df_odds['GAME_DATE'].dt.date
+    df_odds = df_odds.sort_values('GAME_DATE')
     
-    # Filter to today's games
-    df_today = df_odds[df_odds['GAME_DATE_ONLY'] == today].copy()
-    
-    if df_today.empty:
-        print(f"⚠️ No games found for today ({today}). Showing all games in file.")
-        df_today = df_odds.copy()
-    else:
-        print(f"📅 Filtered to {len(df_today)} games today ({today})")
-        print(f"   (Skipped {len(df_odds) - len(df_today)} games from other dates)")
+    print(f"📅 Found {len(df_odds)} games in odds file")
+    if len(df_odds) > 0:
+        date_range = f"{df_odds['GAME_DATE'].min().date()} to {df_odds['GAME_DATE'].max().date()}"
+        print(f"   Date range: {date_range}")
 
     current_injuries = load_injury_report()
     predictions = []
     
-    print(f"\n--- 2. PREDICTING {len(df_today)} GAMES ---")
+    print(f"\n--- 2. PREDICTING {len(df_odds)} GAMES ---")
     
     def get_last_stats(abbr):
         subset = df_stats[df_stats['TEAM_ABBREVIATION'] == abbr]
         if subset.empty: return None
         return subset.iloc[-1]
 
-    for index, row in df_today.iterrows():
+    for index, row in df_odds.iterrows():
         home_raw, away_raw = row.get('HOME_TEAM'), row.get('AWAY_TEAM')
         home_abbr = normalize_team_name(home_raw)
         away_abbr = normalize_team_name(away_raw)
@@ -385,8 +385,13 @@ def predict():
         injury_dict = {home_abbr: h_out, away_abbr: a_out}
         prob_home_mc = run_monte_carlo(home_abbr, away_abbr, df_players, injury_dict)
         
+        # Ensemble prediction with weights
         final_prob_home = (0.7 * prob_home_xgb) + (0.3 * prob_home_mc)
         final_prob_away = 1.0 - final_prob_home  # Away Probability
+        
+        # Calculate confidence intervals for uncertainty quantification
+        ci_home = calculate_confidence_interval(final_prob_home, n_samples=500)
+        ci_away = calculate_confidence_interval(final_prob_away, n_samples=500)
         
         # 2. Odds Calculation
         home_ml = row.get('HOME_ML', 0)
@@ -402,13 +407,33 @@ def predict():
         dec_away = (away_ml/100 + 1) if away_ml > 0 else (100/abs(away_ml) + 1)
         implied_away = 1 / dec_away
         
-        # 3. Calculate Bets (Check BOTH sides) with edge threshold and calibration
+        # 3. Calculate Market Efficiency
+        market_efficiency_home = calculate_market_efficiency_score(
+            final_prob_home, implied_home, historical_accuracy=0.55
+        )
+        market_efficiency_away = calculate_market_efficiency_score(
+            final_prob_away, implied_away, historical_accuracy=0.55
+        )
+        
+        # 4. Calculate Expected Value
+        ev_home = calculate_expected_value(final_prob_home, dec_home)
+        ev_away = calculate_expected_value(final_prob_away, dec_away)
+        
+        # 5. Calculate Bets (Check BOTH sides) with edge threshold and calibration
         bet_home, raw_bet_home, edge_home, calib_prob_home = get_kelly_bet(
             final_prob_home, dec_home, implied_home, BANKROLL
         )
         bet_away, raw_bet_away, edge_away, calib_prob_away = get_kelly_bet(
             final_prob_away, dec_away, implied_away, BANKROLL
         )
+        
+        # 6. Calculate risk metrics for recommended bet
+        if bet_home > 0:
+            risk_metrics = calculate_bankroll_risk(calib_prob_home, bet_home, BANKROLL, dec_home)
+        elif bet_away > 0:
+            risk_metrics = calculate_bankroll_risk(calib_prob_away, bet_away, BANKROLL, dec_away)
+        else:
+            risk_metrics = None
         
         # 4. Decision Logic
         rec = "NO BET"
@@ -451,7 +476,8 @@ def predict():
         else:
             game_date = str(game_date)[:10] if len(str(game_date)) > 10 else str(game_date)
         
-        predictions.append({
+        # Build prediction row with advanced metrics
+        pred_row = {
             'Date': game_date,
             'Game': f"{home_abbr} vs {away_abbr}",
             'Win_Prob': f"{final_prob_display:.1%}",
@@ -459,7 +485,27 @@ def predict():
             'Edge': f"{edge_display:+.1%}",
             'Kelly': rec,
             'Injuries': f"{len(h_out)} H / {len(a_out)} A"
-        })
+        }
+        
+        # Add advanced metrics if bet is recommended
+        if bet_home > 0 or bet_away > 0:
+            ev = ev_home if bet_home > 0 else ev_away
+            efficiency = market_efficiency_home if bet_home > 0 else market_efficiency_away
+            ci = ci_home if bet_home > 0 else ci_away
+            
+            pred_row['EV'] = f"{ev:+.2%}"
+            pred_row['Market_Eff'] = f"{efficiency:.2f}"
+            pred_row['CI_95%'] = f"[{ci[0]:.1%}, {ci[1]:.1%}]"
+            
+            if risk_metrics:
+                pred_row['Risk/Reward'] = f"{risk_metrics['risk_reward_ratio']:.2f}"
+        else:
+            pred_row['EV'] = f"{max(ev_home, ev_away):+.2%}"
+            pred_row['Market_Eff'] = f"{min(market_efficiency_home, market_efficiency_away):.2f}"
+            pred_row['CI_95%'] = "-"
+            pred_row['Risk/Reward'] = "-"
+        
+        predictions.append(pred_row)
 
     # --- OUTPUT ---
     if predictions:
@@ -468,16 +514,52 @@ def predict():
         results.to_csv(OUTPUT_PATH, index=False)
         pd.set_option('display.max_columns', None)
         pd.set_option('display.width', 1000)
-        print("\n" + "="*80)
-        print(f"TODAY'S BETTING CARD ({today}) - KELLY 0.35x")
-        print("="*80)
-        display_cols = ['Date', 'Game', 'Kelly', 'Win_Prob', 'Implied', 'Edge', 'Injuries']
-        print(results[display_cols].to_string(index=False))
-        print(f"\n📊 Summary: {len(results)} games analyzed")
-        bets_placed = len(results[results['Kelly'].str.contains('BET', na=False)])
-        print(f"   Bets recommended: {bets_placed}")
-        print(f"   No bets: {len(results) - bets_placed}")
-        print(f"\n✅ Saved to {OUTPUT_PATH}")
+        # Enhanced output formatting
+        print("\n" + "="*100)
+        print("🏀 NBA BETTING CARD - KELLY 0.35x FRACTIONAL")
+        print("="*100)
+        
+        # Group by date for better organization
+        results['Date'] = pd.to_datetime(results['Date'])
+        results = results.sort_values('Date')
+        
+        # Display by date with enhanced columns
+        for date, group in results.groupby(results['Date'].dt.date):
+            print(f"\n📅 {date}")
+            print("-" * 100)
+            # Show different columns based on whether bets are recommended
+            if 'EV' in group.columns:
+                display_cols = ['Game', 'Kelly', 'Win_Prob', 'Implied', 'Edge', 'EV', 'Market_Eff', 'Injuries']
+            else:
+                display_cols = ['Game', 'Kelly', 'Win_Prob', 'Implied', 'Edge', 'Injuries']
+            print(group[display_cols].to_string(index=False))
+        
+        # Summary statistics
+        bets_df = results[results['Kelly'].str.contains('BET', na=False)]
+        total_bets = len(bets_df)
+        total_games = len(results)
+        
+        if total_bets > 0:
+            # Calculate total bet amount
+            bet_amounts = bets_df['Kelly'].str.extract(r'\$(\d+\.?\d*)')[0].astype(float)
+            total_stake = bet_amounts.sum()
+            avg_edge = bets_df['Edge'].str.rstrip('%').astype(float).mean()
+            
+            print("\n" + "="*100)
+            print("📊 SUMMARY STATISTICS")
+            print("="*100)
+            print(f"Total Games Analyzed:     {total_games}")
+            print(f"Bets Recommended:         {total_bets} ({total_bets/total_games*100:.1f}%)")
+            print(f"Total Stake (if all bet): ${total_stake:.2f}")
+            print(f"Average Edge:             {avg_edge:+.2f}%")
+            print(f"No Bet:                   {total_games - total_bets} ({100-total_bets/total_games*100:.1f}%)")
+        else:
+            print("\n" + "="*100)
+            print("📊 SUMMARY: No bets recommended")
+            print("="*100)
+            print(f"Total Games Analyzed: {total_games}")
+        
+        print(f"\n✅ Results saved to {OUTPUT_PATH}")
     else:
         print("❌ No games found.")
 

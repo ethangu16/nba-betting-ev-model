@@ -14,6 +14,24 @@ HOME_ADVANTAGE = 60
 def get_mov_multiplier(mov, elo_diff):
     return ((mov + 3) ** 0.8) / (7.5 + 0.006 * elo_diff)
 
+def extract_opponent_abbreviation(df):
+    """Extract opponent abbreviation from MATCHUP column."""
+    def get_opp(matchup, team):
+        if '@' in matchup:
+            # Format: "TEAM @ OPP"
+            parts = matchup.split(' @ ')
+            return parts[1] if parts[0] == team else parts[0]
+        elif 'vs.' in matchup:
+            # Format: "TEAM vs. OPP" 
+            parts = matchup.split(' vs. ')
+            return parts[1] if parts[0] == team else parts[0]
+        else:
+            # Fallback
+            return None
+    
+    df['OPP_ABBREVIATION'] = df.apply(lambda row: get_opp(row['MATCHUP'], row['TEAM_ABBREVIATION']), axis=1)
+    return df
+
 def calculate_elo(df):
     print(f"Calculating Elo on {len(df)} games...")
     all_teams = set(df['TEAM_ABBREVIATION'].unique()) | set(df['OPP_ABBREVIATION'].unique())
@@ -256,8 +274,9 @@ def main():
     # 3. Engineer Features
     df = calculate_advanced_stats(df)  # <--- NEW Step
     df = add_fatigue_features(df)      # <--- NEW Step
+    df = extract_opponent_abbreviation(df)  # Extract opponent from matchup
     df = calculate_elo(df)
-    df = calculate_roster_strength(df) 
+    df = calculate_roster_strength(df)
     
     # 4. Roll the Features
     df = create_rolling_features(df)

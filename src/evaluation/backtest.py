@@ -4,17 +4,27 @@ import numpy as np
 import matplotlib.pyplot as plt
 import joblib
 import os
+import sys
+
+# Add parent directory to path for imports
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+from src.utils.betting_advanced import calculate_expected_value
 
 # --- CONFIGURATION ---
 DATA_PATH = 'data/processed/nba_model_with_odds.csv'
 MODEL_PATH_JSON = 'models/nba_xgb_model.json'
 MODEL_PATH_JOBLIB = 'models/nba_xgb_model.joblib'
 
-# BANKROLL SETTINGS
+# BANKROLL SETTINGS (Match predict_today.py exactly)
 INITIAL_BANKROLL = 10000
-KELLY_FRACTION = 0.25  # Safety: Bet 25% of the optimal Kelly amount
+KELLY_FRACTION = 0.35  # Match predict_today.py (35% of optimal)
 MAX_BET_PCT = 0.05     # Cap: Never bet more than 5% of bankroll on one game
-EDGE_THRESHOLD = 0.01  # Threshold: Only bet if Edge > 1%
+MIN_EDGE_THRESHOLD = 0.02  # Match predict_today.py (minimum 2% edge)
+MAX_EDGE_THRESHOLD = 0.15  # Match predict_today.py (maximum 15% edge)
+MIN_WIN_PROB = 0.30    # Match predict_today.py
+MAX_WIN_PROB = 0.90    # Match predict_today.py
+PROB_CALIBRATION_FACTOR = 1.0  # Match predict_today.py
+USE_SIGMOID_CALIBRATION = False  # Match predict_today.py
 
 def get_implied_prob(moneyline):
     """Converts American Odds (-150, +130) to Implied Probability (0-1)."""
@@ -123,6 +133,9 @@ def backtest():
         return
 
     print("🧠 Generating AI predictions...")
+    # Use same approach as predict_today: XGBoost only (no Monte Carlo in backtest)
+    # In production, we use 70% XGBoost + 30% Monte Carlo, but for backtest
+    # we only have XGBoost predictions, so we use those directly
     probs = model.predict_proba(test_df[features])[:, 1]
     test_df['MODEL_PROB'] = probs
     
@@ -134,6 +147,63 @@ def backtest():
     
     print("\n--- SIMULATING WAGERS ---")
     
+    def calibrate_probability(prob):
+        """Match predict_today.py calibration"""
+        if not USE_SIGMOID_CALIBRATION:
+            return prob
+        CALIBRATION_STRENGTH = 0.3
+        calibrated = 0.5 + (prob - 0.5) * (1 - CALIBRATION_STRENGTH)
+        return calibrated
+    
+    def get_kelly_bet(prob_win, decimal_odds, implied_prob, bankroll):
+        """Match predict_today.py Kelly calculation exactly"""
+        # Calibrate probability
+        calibrated_prob = calibrate_probability(prob_win)
+        
+        # Calculate edge
+        edge = calibrated_prob - implied_prob
+        
+        # Cap maximum edge
+        if edge > MAX_EDGE_THRESHOLD:
+            edge = MAX_EDGE_THRESHOLD
+            calibrated_prob = implied_prob + edge
+        
+        # Check minimum edge threshold
+        if edge < MIN_EDGE_THRESHOLD:
+            return (0.0, 0.0, edge, calibrated_prob)
+        
+        # Check win probability bounds
+        if calibrated_prob < MIN_WIN_PROB or calibrated_prob > MAX_WIN_PROB:
+            return (0.0, 0.0, edge, calibrated_prob)
+        
+        # Apply edge dampening
+        edge = edge * PROB_CALIBRATION_FACTOR
+        calibrated_prob = implied_prob + edge
+        
+        # Kelly formula
+        b = decimal_odds - 1
+        p = calibrated_prob
+        q = 1.0 - p
+        
+        if b <= 0:
+            return (0.0, 0.0, edge, calibrated_prob)
+        
+        kelly_pct = (b * p - q) / b
+        
+        # Only bet if positive Kelly
+        if kelly_pct <= 0:
+            return (0.0, 0.0, edge, calibrated_prob)
+        
+        # Calculate raw bet (before cap)
+        raw_bet_pct = kelly_pct * KELLY_FRACTION
+        raw_bet_amount = bankroll * raw_bet_pct
+        
+        # Apply max bet cap
+        bet_pct = min(raw_bet_pct, MAX_BET_PCT)
+        bet_amount = bankroll * bet_pct
+        
+        return (bet_amount, raw_bet_amount, edge, calibrated_prob)
+    
     for index, row in test_df.iterrows():
         odds = row['MONEYLINE']
         implied_prob = get_implied_prob(odds)
@@ -142,28 +212,28 @@ def backtest():
         
         if implied_prob is None: continue
         
-        edge = model_prob - implied_prob
+        # Use same Kelly calculation as predict_today.py
+        bet_amount, raw_bet, edge, calib_prob = get_kelly_bet(
+            model_prob, decimal_odds, implied_prob, bankroll
+        )
         
-        if edge > EDGE_THRESHOLD:
+        if bet_amount > 0:
             stats['bets_placed'] += 1
             b = decimal_odds - 1
-            p = model_prob
-            q = 1 - p
-            
-            if b <= 0: continue 
-            
-            kelly_pct = (b * p - q) / b
-            stake_pct = max(0, min(kelly_pct * KELLY_FRACTION, MAX_BET_PCT))
-            stake = bankroll * stake_pct
             
             if row['TARGET_WIN'] == 1:
-                bankroll += stake * b
+                bankroll += bet_amount * b
                 stats['wins'] += 1
             else:
-                bankroll -= stake
+                bankroll -= bet_amount
                 stats['losses'] += 1
         else:
-            stats['skipped_low_edge'] += 1
+            if edge < MIN_EDGE_THRESHOLD:
+                stats['skipped_low_edge'] += 1
+            elif calib_prob < MIN_WIN_PROB or calib_prob > MAX_WIN_PROB:
+                stats['skipped_low_edge'] += 1  # Count as skipped
+            else:
+                stats['skipped_low_edge'] += 1
             
         history.append(bankroll)
 
