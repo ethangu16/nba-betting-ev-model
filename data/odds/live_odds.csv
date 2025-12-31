@@ -1,20 +1,6 @@
 GAME_DATE,HOME_TEAM,AWAY_TEAM,HOME_ML,AWAY_ML,HOME_SPREAD,HOME_SPREAD_ODDS,AWAY_SPREAD,AWAY_SPREAD_ODDS,BOOKMAKER
-2025-12-24T00:10:00Z,Philadelphia 76ers,Brooklyn Nets,-420,330,-10.0,-106,10.0,-114,FanDuel
-2025-12-24T00:10:00Z,Charlotte Hornets,Washington Wizards,-215,180,-5.5,-114,5.5,-106,FanDuel
-2025-12-24T00:40:00Z,Atlanta Hawks,Chicago Bulls,-166,140,-4.0,-114,4.0,-106,FanDuel
-2025-12-24T00:40:00Z,Cleveland Cavaliers,New Orleans Pelicans,-405,320,-9.5,-110,9.5,-110,FanDuel
-2025-12-24T00:40:00Z,Indiana Pacers,Milwaukee Bucks,-102,-118,1.0,-110,-1.0,-110,FanDuel
-2025-12-24T00:40:00Z,Miami Heat,Toronto Raptors,-210,176,-5.5,-110,5.5,-110,FanDuel
-2025-12-24T01:10:00Z,Dallas Mavericks,Denver Nuggets,235,-290,7.5,-110,-7.5,-110,FanDuel
-2025-12-24T01:10:00Z,Minnesota Timberwolves,New York Knicks,-260,215,-6.5,-112,6.5,-108,FanDuel
-2025-12-24T01:40:00Z,San Antonio Spurs,Oklahoma City Thunder,198,-240,5.5,-110,-5.5,-110,FanDuel
-2025-12-24T02:10:00Z,Phoenix Suns,Los Angeles Lakers,-220,184,-5.5,-110,5.5,-110,FanDuel
-2025-12-24T02:10:00Z,Utah Jazz,Memphis Grizzlies,124,-146,2.5,-110,-2.5,-110,FanDuel
-2025-12-24T03:10:00Z,Sacramento Kings,Detroit Pistons,275,-340,8.0,-106,-8.0,-114,FanDuel
-2025-12-24T03:10:00Z,Portland Trail Blazers,Orlando Magic,112,-132,2.0,-110,-2.0,-110,FanDuel
-2025-12-24T04:10:00Z,Los Angeles Clippers,Houston Rockets,230,-280,7.0,-110,-7.0,-110,FanDuel
-2025-12-25T17:00:00Z,New York Knicks,Cleveland Cavaliers,-205,170,-5.5,-108,5.5,-112,DraftKings
-2025-12-25T19:30:00Z,Oklahoma City Thunder,San Antonio Spurs,-485,370,-10.5,-110,10.5,-110,DraftKings
-2025-12-25T22:00:00Z,Golden State Warriors,Dallas Mavericks,-298,240,-7.5,-108,7.5,-112,DraftKings
-2025-12-26T01:00:00Z,Los Angeles Lakers,Houston Rockets,164,-198,4.5,-105,-4.5,-115,DraftKings
-2025-12-26T03:30:00Z,Denver Nuggets,Minnesota Timberwolves,-185,154,-4.5,-108,4.5,-112,DraftKings
+2025-12-31T01:10:00Z,Memphis Grizzlies,Philadelphia 76ers,-102,-116,1.0,-110,-1.0,-110,FanDuel
+2025-12-31T02:10:00Z,Utah Jazz,Boston Celtics,235,-290,8.5,-114,-8.5,-106,FanDuel
+2025-12-31T03:40:00Z,Los Angeles Lakers,Detroit Pistons,118,-138,2.5,-110,-2.5,-110,FanDuel
+2025-12-31T04:10:00Z,Los Angeles Clippers,Sacramento Kings,-420,330,-10.0,-114,10.0,-106,FanDuel
+2026-01-01T00:10:00Z,San Antonio Spurs,New York Knicks,-132,112,-2.0,-110,2.0,-110,FanDuel

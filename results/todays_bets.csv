@@ -1,20 +1,6 @@
-Date,Game,Win_Prob,Implied,Edge,Kelly,Injuries
-2025-12-24,PHI vs BKN,37.1%,23.3%,+13.8%,BET BKN $50.00 (capped from $62.91),2 H / 3 A
-2025-12-24,CHA vs WAS,50.7%,35.7%,+15.0%,BET WAS $50.00 (capped from $81.67),2 H / 1 A
-2025-12-24,ATL vs CHI,48.3%,41.7%,+6.7%,BET CHI $40.03,4 H / 1 A
-2025-12-24,CLE vs NOP,38.8%,23.8%,+15.0%,BET NOP $50.00 (capped from $68.91),3 H / 1 A
-2025-12-24,IND vs MIL,69.1%,54.1%,+15.0%,BET MIL $50.00 (capped from $114.45),4 H / 2 A
-2025-12-24,MIA vs TOR,75.6%,67.7%,+7.9%,BET MIA $50.00 (capped from $85.20),4 H / 2 A
-2025-12-24,DAL vs DEN,44.9%,29.9%,+15.0%,BET DAL $50.00 (capped from $74.84),3 H / 3 A
-2025-12-24,MIN vs NYK,73.3%,72.2%,+1.1%,NO BET,1 H / 5 A
-2025-12-24,SAS vs OKC,48.6%,33.6%,+15.0%,BET SAS $50.00 (capped from $79.02),0 H / 3 A
-2025-12-24,PHX vs LAL,64.3%,68.8%,-4.5%,NO BET,2 H / 4 A
-2025-12-24,UTA vs MEM,61.4%,59.3%,+2.1%,BET MEM $17.86,2 H / 7 A
-2025-12-24,SAC vs DET,41.7%,26.7%,+15.0%,BET SAC $50.00 (capped from $71.59),3 H / 0 A
-2025-12-24,POR vs ORL,54.7%,47.2%,+7.6%,BET POR $50.00 (capped from $50.17),5 H / 5 A
-2025-12-24,LAC vs HOU,45.3%,30.3%,+15.0%,BET LAC $50.00 (capped from $75.33),3 H / 2 A
-2025-12-25,NYK vs CLE,73.9%,67.2%,+6.7%,BET NYK $50.00 (capped from $71.01),5 H / 3 A
-2025-12-25,OKC vs SAS,72.2%,82.9%,-10.7%,NO BET,3 H / 0 A
-2025-12-25,GSW vs DAL,33.6%,29.4%,+4.2%,BET DAL $20.78,2 H / 3 A
-2025-12-26,LAL vs HOU,52.9%,37.9%,+15.0%,BET LAL $50.00 (capped from $84.51),4 H / 2 A
-2025-12-26,DEN vs MIN,74.8%,64.9%,+9.9%,BET DEN $50.00 (capped from $99.03),3 H / 1 A
+Game,Model_Prob,Edge,Recommendation
+MEM vs PHI,67.7%,+11.9%,BET MEM $50.00
+UTA vs BOS,39.7%,+12.9%,BET UTA $50.00
+LAL vs DET,46.7%,+1.8%,NO BET
+LAC vs SAC,79.0%,+6.4%,NO BET
+SAS vs NYK,58.3%,-1.1%,NO BET

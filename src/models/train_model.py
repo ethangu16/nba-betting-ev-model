@@ -1,17 +1,18 @@
 import pandas as pd
 import xgboost as xgb
 import joblib
-from sklearn.model_selection import train_test_split, GridSearchCV
-from sklearn.metrics import accuracy_score, classification_report, brier_score_loss
-from sklearn.calibration import CalibratedClassifierCV  # <--- NEW IMPORT
+from sklearn.model_selection import GridSearchCV, TimeSeriesSplit
+from sklearn.metrics import accuracy_score, classification_report, brier_score_loss, confusion_matrix
+from sklearn.calibration import CalibratedClassifierCV
 import os
+import numpy as np
 
 # --- CONFIGURATION ---
 INPUT_PATH = 'data/processed/nba_model.csv'
 MODEL_PATH = 'models/nba_xgb_model.joblib'
 
 def train():
-    print(f"Loading data from {INPUT_PATH}...")
+    print(f"\nLOADING DATA from {INPUT_PATH}...")
     try:
         df = pd.read_csv(INPUT_PATH)
     except FileNotFoundError:
@@ -26,88 +27,111 @@ def train():
             'ROLL_OFF_RTG', 'ROLL_DEF_RTG',   
             'ROLL_PACE', 
             'ROLL_EFG_PCT', 'ROLL_TOV_PCT', 'ROLL_ORB_PCT', 'ROLL_FTR',
-            'ROLL_ROSTER_TALENT_SCORE'
+            'ROLL_ROSTER_TALENT_SCORE',
     ]
     
     target = 'TARGET_WIN'
 
     # 2. Check & Clean Data
-    missing_cols = [f for f in features if f not in df.columns]
-    if missing_cols:
-        print(f"❌ Critical Error: Missing columns: {missing_cols}")
-        return
-
+    initial_len = len(df)
     df = df.dropna(subset=features + [target])
+    print(f"   Dropped {initial_len - len(df)} rows with missing values.")
+
+    if 'GAME_DATE' in df.columns:
+        df['GAME_DATE'] = pd.to_datetime(df['GAME_DATE'])
+        df = df.sort_values('GAME_DATE').reset_index(drop=True)
+        print(f"   ✅ Date Range: {df['GAME_DATE'].min().date()} to {df['GAME_DATE'].max().date()}")
+    else:
+        print("⚠️ Warning: GAME_DATE not found. Using index assuming chronological order.")
     
     X = df[features]
     y = df[target]
     
-    print(f"Training on {len(df)} games...")
-
-    # 3. Split Data (Train / Test)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    # --- 3. SPLIT DATA (TIME SERIES SPLIT) ---
+    split_idx = int(len(df) * 0.8)
+    
+    X_train = X.iloc[:split_idx]
+    y_train = y.iloc[:split_idx]
+    train_dates = df['GAME_DATE'].iloc[:split_idx]
+    
+    X_test = X.iloc[split_idx:]
+    y_test = y.iloc[split_idx:]
+    test_dates = df['GAME_DATE'].iloc[split_idx:]
+    
+    print("\n✂️  SPLIT AUDIT:")
+    print(f"   Train: {len(X_train)} games | End Date: {train_dates.max().date()}")
+    print(f"   Test:  {len(X_test)} games | Start Date: {test_dates.min().date()}")
 
     # --- GRID SEARCH ---
-    
-    # 4. Define Hyperparameters
+    print("\n🔍 STARTING GRID SEARCH...")
     param_grid = {
         'n_estimators': [100, 200],
-        'max_depth': [3, 4, 5],
-        'learning_rate': [0.01, 0.1],
+        'max_depth': [3, 4],
+        'learning_rate': [0.01, 0.05],
         'subsample': [0.8],
         'colsample_bytree': [0.8]
     }
     
-    # 5. Initialize Base XGBoost
-    xgb_base = xgb.XGBClassifier(
-        objective='binary:logistic',
-        eval_metric='logloss',
-    )
+    xgb_base = xgb.XGBClassifier(objective='binary:logistic', eval_metric='logloss')
+    tscv = TimeSeriesSplit(n_splits=3)
     
-    # 6. Run Grid Search
-    print(f"\n🔍 Starting Grid Search...")
     grid_search = GridSearchCV(
         estimator=xgb_base,
         param_grid=param_grid,
-        cv=3,
+        cv=tscv,
         scoring='accuracy',
         n_jobs=-1,
         verbose=1
     )
     
     grid_search.fit(X_train, y_train)
-    
     best_xgb = grid_search.best_estimator_
-    print(f"\n✅ Best XGBoost Params: {grid_search.best_params_}")
+    print(f"   ✅ Best Params: {grid_search.best_params_}")
 
-    # --- CALIBRATION STEP (NEW) ---
+    # --- FEATURE IMPORTANCE AUDIT ---
+    print("\n🧠 MODEL BRAIN (Feature Importance):")
+    imps = best_xgb.feature_importances_
+    # Pair feature names with importance
+    feature_imp = pd.DataFrame({'Feature': features, 'Importance': imps})
+    feature_imp = feature_imp.sort_values('Importance', ascending=False)
     
-    print("\n🔧 Calibrating Model Probabilities (Platt Scaling)...")
-    
-    # Wrap the best XGBoost model in a Calibrator
-    # method='sigmoid' is "Platt Scaling" (best for datasets < 100k rows)
-    # cv=5 means it splits Training data 5 ways to learn the calibration map safely
+    # Print bar chart style
+    for index, row in feature_imp.iterrows():
+        bar_len = int(row['Importance'] * 40) # Scale for visual
+        bar = '█' * bar_len
+        print(f"   {row['Feature']:<25} | {bar} ({row['Importance']:.1%})")
+
+    # --- CALIBRATION ---
+    print("\n🔧 Calibrating Probabilities...")
     calibrated_model = CalibratedClassifierCV(best_xgb, method='sigmoid', cv=5)
-    
-    # Fit the CALIBRATED model on training data
     calibrated_model.fit(X_train, y_train)
 
-    # 9. Evaluate (Using the CALIBRATED model)
+    # --- EVALUATION ---
+    print("\n🎯 FINAL EVALUATION (Test Set):")
     y_pred = calibrated_model.predict(X_test)
     y_prob = calibrated_model.predict_proba(X_test)[:, 1]
     
     acc = accuracy_score(y_test, y_pred)
-    brier = brier_score_loss(y_test, y_prob) # Lower Brier score is better!
+    brier = brier_score_loss(y_test, y_prob)
+    cm = confusion_matrix(y_test, y_pred)
     
-    print(f"\n🎯 Final Accuracy: {acc:.1%}")
-    print(f"📉 Brier Score (Calibration Error): {brier:.4f} (Lower is better)")
-    print(classification_report(y_test, y_pred))
+    print(f"   Accuracy:    {acc:.1%}")
+    print(f"   Brier Score: {brier:.4f} (Lower is better)")
+    print(f"   Win % in Test Set: {y_test.mean():.1%}")
+    print(f"\n   Confusion Matrix:")
+    print(f"      [ TN {cm[0][0]}  FP {cm[0][1]} ]")
+    print(f"      [ FN {cm[1][0]}  TP {cm[1][1]} ]")
+    
+    # Probability Distribution Check
+    print("\n   📊 Probability Check (Are we confident?):")
+    print(f"      Avg Confidence: {np.mean(np.abs(y_prob - 0.5)) + 0.5:.1%}")
+    print(f"      Bets > 60%:     {np.sum(y_prob > 0.6)} games")
+    print(f"      Bets < 40%:     {np.sum(y_prob < 0.4)} games")
 
-    # 10. Save the CALIBRATED model
-    # Note: This saves the wrapper, which contains the XGBoost model inside it
+    # Save
     os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True)
     joblib.dump(calibrated_model, MODEL_PATH)
-    print(f"✅ Saved CALIBRATED model to {MODEL_PATH}")
+    print(f"\n✅ Model saved to {MODEL_PATH}")
 
 if __name__ == "__main__":
     train()

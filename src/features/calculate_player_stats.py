@@ -9,9 +9,6 @@ def create_talent_pool():
     df = pd.read_csv(INPUT_PATH)
     
     # 1. Clean Data
-    # Convert 'MIN' to number (sometimes it is '34:12', we need just 34.2)
-    # Simple fix: If it's a string containing ':', take the first part. 
-    # Usually the API gives an integer or float, so we just ensure numeric.
     df['MIN'] = pd.to_numeric(df['MIN'], errors='coerce').fillna(0)
     
     # 2. Calculate Hollinger Game Score (The "Rating")
@@ -31,14 +28,12 @@ def create_talent_pool():
     )
     
     # 3. Calculate Rolling Averages (Current Form)
-    # We sort by date so the rolling window is correct
     df['GAME_DATE'] = pd.to_datetime(df['GAME_DATE'])
     df = df.sort_values(['PLAYER_ID', 'GAME_DATE'])
     
     print("Calculating rolling averages (Last 10 games)...")
     
     # Calculate average Game Score & Minutes over last 10 games
-    # We group by PLAYER_ID so stats don't bleed between players
     df['GAME_SCORE_AVG'] = df.groupby('PLAYER_ID')['GAME_SCORE'].transform(
         lambda x: x.rolling(window=10, min_periods=3).mean()
     )

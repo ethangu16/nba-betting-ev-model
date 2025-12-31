@@ -1,163 +1,156 @@
 from nba_api.stats.endpoints import leaguegamefinder
-from nba_api.stats.static import teams
 import pandas as pd
-import numpy as np
 import time
-from datetime import datetime
-from math import radians, cos, sin, asin, sqrt
+import os
 
-SEASONS = ['2021-22', '2022-23', '2023-24', '2024-25', '2025-26']
-OUTPUT_FILE = 'data/raw/nba_games_stats.csv'
+# --- CONFIGURATION ---
+DATA_DIR = 'data/raw'
+GAMES_FILE = f'{DATA_DIR}/nba_games_stats.csv'
+PLAYERS_FILE = f'{DATA_DIR}/nba_player_stats.csv'
 
-# Arena Coordinates
-ARENA_COORDS = {
-    'ATL': (33.757, -84.396), 'BOS': (42.366, -71.062), 'BKN': (40.682, -73.975),
-    'CHA': (35.225, -80.839), 'CHI': (41.880, -87.674), 'CLE': (41.496, -81.688),
-    'DAL': (32.790, -96.810), 'DEN': (39.748, -105.007), 'DET': (42.341, -83.055),
-    'GSW': (37.768, -122.387), 'HOU': (29.750, -95.362), 'IND': (39.764, -86.155),
-    'LAC': (33.945, -118.342), 'LAL': (34.043, -118.267), 'MEM': (35.138, -90.050),
-    'MIA': (25.781, -80.187), 'MIL': (43.045, -87.917), 'MIN': (44.979, -93.276),
-    'NOP': (29.949, -90.082), 'NYK': (40.750, -73.993), 'OKC': (35.463, -97.515),
-    'ORL': (28.539, -81.383), 'PHI': (39.901, -75.172), 'PHX': (33.445, -112.071),
-    'POR': (45.531, -122.666), 'SAC': (38.580, -121.499), 'SAS': (29.427, -98.437),
-    'TOR': (43.643, -79.379), 'UTA': (40.768, -111.901), 'WAS': (38.898, -77.020)
-}
+START_SEASON = 2015
+CURRENT_SEASON = 2025
 
-def haversine(lon1, lat1, lon2, lat2):
-    """Calculate the great circle distance in miles between two points."""
-    lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
-    dlon = lon2 - lon1
-    dlat = lat2 - lat1
-    a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
-    c = 2 * asin(sqrt(a))
-    r = 3956
-    return c * r
+def get_season_string(year):
+    return f"{year}-{str(year + 1)[-2:]}"
 
-def get_games_for_season(season_str):
-    """Fetch games for a SINGLE season"""
-    print(f"Fetching {season_str}...")
+def get_fetch_params(existing_df=None):
+    """
+    Decides whether to fetch history or just updates.
+    """
+    if existing_df is None or existing_df.empty or 'GAME_DATE' not in existing_df.columns:
+        print("No existing data found. Fetching full history...")
+        return [get_season_string(y) for y in range(START_SEASON, CURRENT_SEASON + 1)], None
+
     try:
-        gamefinder = leaguegamefinder.LeagueGameFinder(
-            season_nullable=season_str,
-            league_id_nullable='00',
-            season_type_nullable='Regular Season'
-        )
-        games = gamefinder.get_data_frames()[0]
-        print(f"  -> Found {len(games)} rows.")
-        return games
+        # Find the latest date
+        dates = pd.to_datetime(existing_df['GAME_DATE'], format='mixed', errors='coerce')
+        last_date = dates.max()
+        start_date_str = last_date.strftime('%m/%d/%Y')
+        print(f"Existing data found up to {last_date.date()}. Checking for games after {start_date_str}...")
+        return [get_season_string(CURRENT_SEASON)], start_date_str
     except Exception as e:
-        print(f"Error fetching {season_str}: {e}")
-        return pd.DataFrame()
+        print(f"Error reading dates ({e}). Fetching full history.")
+        return [get_season_string(y) for y in range(START_SEASON, CURRENT_SEASON + 1)], None
 
-def calculate_advanced_stats(df):
-    
-    # 1. Self-Join to get Opponent Stats
-    df_opp = df[['GAME_ID', 'TEAM_ID', 'FGA', 'FTA', 'TOV', 'OREB', 'DREB', 'PTS']].copy()
-    df_opp.columns = ['GAME_ID', 'OPP_TEAM_ID', 'OPP_FGA', 'OPP_FTA', 'OPP_TOV', 'OPP_OREB', 'OPP_DREB', 'OPP_PTS']
-    
+def fetch_games(seasons, start_date=None, mode='Team'):
+    dfs = []
+    player_flag = 'P' if mode == 'Player' else 'T'
+
+    for season in seasons:
+        print(f"   > Fetching {mode} stats for {season}...")
+        for attempt in range(3):
+            try:
+                gamefinder = leaguegamefinder.LeagueGameFinder(
+                    season_nullable=season,
+                    date_from_nullable=start_date, 
+                    league_id_nullable='00',
+                    season_type_nullable='Regular Season',
+                    player_or_team_abbreviation=player_flag,
+                    timeout=60
+                )
+                data = gamefinder.get_data_frames()[0]
+                if not data.empty:
+                    dfs.append(data)
+                time.sleep(0.6)
+                break
+            except Exception as e:
+                print(f"   ⚠️ Retry {attempt+1}/3 for {season}: {e}")
+                time.sleep((attempt + 1) * 2)
+
+    return pd.concat(dfs, ignore_index=True) if dfs else pd.DataFrame()
+
+def process_team_data(df):
+    print("   > Processing team advanced stats...")
+    df['GAME_DATE'] = pd.to_datetime(df['GAME_DATE'])
+
+    cols_to_rename = {
+        'TEAM_ID': 'OPP_TEAM_ID', 'PTS': 'OPP_PTS', 'FGA': 'OPP_FGA', 
+        'FTA': 'OPP_FTA', 'TOV': 'OPP_TOV', 'OREB': 'OPP_OREB', 'DREB': 'OPP_DREB'
+    }
+    df_opp = df[['GAME_ID'] + list(cols_to_rename.keys())].rename(columns=cols_to_rename)
+
     df = pd.merge(df, df_opp, on='GAME_ID')
-    df = df[df['TEAM_ID'] != df['OPP_TEAM_ID']] # Filter out self-matches
-    
-    # 2. Four Factors Calculation
+    df = df[df['TEAM_ID'] != df['OPP_TEAM_ID']].copy()
+
     df['EFG_PCT'] = (df['FGM'] + 0.5 * df['FG3M']) / df['FGA']
     df['TOV_PCT'] = df['TOV'] / (df['FGA'] + 0.44 * df['FTA'] + df['TOV'])
     df['ORB_PCT'] = df['OREB'] / (df['OREB'] + df['OPP_DREB'])
     df['FTR'] = df['FTA'] / df['FGA']
-
-    # 3. Rest Days & Travel Distance
-    df['GAME_DATE'] = pd.to_datetime(df['GAME_DATE'])
-    df = df.sort_values(['TEAM_ID', 'GAME_DATE'])
-    
-    # Calculate days since last game (fill first game with 7 days rest)
-    df['REST_DAYS'] = df.groupby('TEAM_ID')['GAME_DATE'].diff().dt.days.fillna(7)
-    
-    # Coordinates & Travel
-    df['TEAM_COORDS'] = df['TEAM_ABBREVIATION'].map(ARENA_COORDS)
-    # Extract opponent from MATCHUP
-    df['OPP_ABBREVIATION'] = df['MATCHUP'].apply(lambda x: x.split(' ')[-1])
-    df['OPP_COORDS'] = df['OPP_ABBREVIATION'].map(ARENA_COORDS)
-    
-    # Determine Game Location
     df['IS_HOME'] = df['MATCHUP'].str.contains('vs.').astype(int)
+
+    df = df.sort_values(['TEAM_ID', 'GAME_DATE'])
+    df['REST_DAYS'] = df.groupby('TEAM_ID')['GAME_DATE'].diff().dt.days.fillna(3)
+
+    cols = [
+        'GAME_DATE', 'SEASON_ID', 'GAME_ID', 'TEAM_ABBREVIATION', 'MATCHUP', 'WL',
+        'PTS', 'PLUS_MINUS', 'EFG_PCT', 'TOV_PCT', 'ORB_PCT', 'FTR', 'REST_DAYS', 'IS_HOME',
+        'FGA', 'FG_PCT', 'FG3M', 'FG3A', 'FG3_PCT', 'FTM', 'FTA', 'FT_PCT',
+        'OREB', 'DREB', 'REB', 'AST', 'STL', 'BLK', 'TOV', 'PF'
+    ]
+    return df[cols]
+
+def update_and_save(file_path, new_df, id_cols):
+    """
+    Simplified pipeline: Load -> Merge -> Deduplicate -> Sort -> Save
+    """
+    if os.path.exists(file_path):
+        # Load existing data (keep IDs as strings to prevent data loss)
+        old_df = pd.read_csv(file_path, dtype={'GAME_ID': str})
+        combined = pd.concat([old_df, new_df], ignore_index=True)
+    else:
+        combined = new_df
+
+    # Ensure ID columns are strings for consistent deduplication
+    for col in id_cols:
+        if col in combined.columns:
+            combined[col] = combined[col].astype(str)
+
+    # Deduplicate (Keep Last = Keep Newest)
+    before = len(combined)
+    combined = combined.drop_duplicates(subset=id_cols, keep='last')
     
-    # If home, use team coords. If away, use opponent coords.
-    df['GAME_LOC_LAT'] = np.where(df['IS_HOME'] == 1, 
-                                  df['TEAM_COORDS'].apply(lambda x: x[0] if isinstance(x, tuple) else 0), 
-                                  df['OPP_COORDS'].apply(lambda x: x[0] if isinstance(x, tuple) else 0))
-    df['GAME_LOC_LON'] = np.where(df['IS_HOME'] == 1, 
-                                  df['TEAM_COORDS'].apply(lambda x: x[1] if isinstance(x, tuple) else 0), 
-                                  df['OPP_COORDS'].apply(lambda x: x[1] if isinstance(x, tuple) else 0))
+    # Sort & Format Date
+    if 'GAME_DATE' in combined.columns:
+        combined['GAME_DATE'] = pd.to_datetime(combined['GAME_DATE'], format='mixed', errors='coerce')
+        combined = combined.sort_values(by=['GAME_DATE', 'GAME_ID'], ascending=[True, True])
+        combined['GAME_DATE'] = combined['GAME_DATE'].dt.strftime('%Y-%m-%d')
 
-    # Shift to get previous location
-    df['PREV_LAT'] = df.groupby('TEAM_ID')['GAME_LOC_LAT'].shift(1)
-    df['PREV_LON'] = df.groupby('TEAM_ID')['GAME_LOC_LON'].shift(1)
+    print(f"   > Saving to {file_path}: {len(combined)} rows ({before - len(combined)} duplicates removed)")
+    combined.to_csv(file_path, index=False)
+
+def run_pipeline():
+    os.makedirs(DATA_DIR, exist_ok=True)
+
+    # --- TEAMS ---
+    print("\n🏀 Updating TEAM Games...")
+    existing_games = pd.read_csv(GAMES_FILE, dtype={'GAME_ID': str}) if os.path.exists(GAMES_FILE) else None
     
-    # Calculate Travel
-    df['TRAVEL_MILES'] = df.apply(
-        lambda row: haversine(row['PREV_LON'], row['PREV_LAT'], row['GAME_LOC_LON'], row['GAME_LOC_LAT']) 
-        if pd.notnull(row['PREV_LAT']) and row['PREV_LAT'] != 0 else 0, axis=1
-    )
+    seasons, start_date = get_fetch_params(existing_games)
+    
+    raw_games = fetch_games(seasons, start_date=start_date, mode='Team')
+    
+    if not raw_games.empty:
+        processed_games = process_team_data(raw_games)
+        update_and_save(GAMES_FILE, processed_games, ['GAME_ID', 'TEAM_ABBREVIATION'])
+    else:
+        print("⚠️ No new team data found.")
 
-    return df
-
-def get_player_stats_for_season(season_str):
-    """Fetch PLAYER stats for a single season"""
-    print(f"Fetching PLAYER stats for {season_str}...")
-    try:
-        # 'P' gets player stats
-        gamefinder = leaguegamefinder.LeagueGameFinder(
-            season_nullable=season_str,
-            league_id_nullable='00',
-            season_type_nullable='Regular Season',
-            player_or_team_abbreviation='P' 
-        )
-        games = gamefinder.get_data_frames()[0]
-        print(f"  -> Found {len(games)} player rows.")
-        return games
-    except Exception as e:
-        print(f"Error fetching players {season_str}: {e}")
-        return pd.DataFrame()
+    # --- PLAYERS ---
+    print("\n👤 Updating PLAYER Stats...")
+    existing_players = pd.read_csv(PLAYERS_FILE, dtype={'GAME_ID': str}) if os.path.exists(PLAYERS_FILE) else None
+    
+    seasons, start_date = get_fetch_params(existing_players)
+    
+    raw_players = fetch_games(seasons, start_date=start_date, mode='Player')
+    
+    if not raw_players.empty:
+        if 'GAME_DATE' in raw_players.columns:
+            raw_players['GAME_DATE'] = pd.to_datetime(raw_players['GAME_DATE']).dt.strftime('%Y-%m-%d')
+            
+        update_and_save(PLAYERS_FILE, raw_players, ['GAME_ID', 'TEAM_ABBREVIATION', 'PLAYER_ID'])
+    else:
+        print("⚠️ No new player data found.")
 
 if __name__ == "__main__":
-    print("Starting NBA data collection (Multi-Season)...")
-    
-    # 1. Loop through seasons and collect data
-    all_season_dfs = []
-    for season in SEASONS:
-        season_df = get_games_for_season(season)
-        if not season_df.empty:
-            all_season_dfs.append(season_df)
-            time.sleep(1) 
-            
-    if not all_season_dfs:
-        print("❌ No data collected. Check your internet or API limits.")
-    else:
-        full_df = pd.concat(all_season_dfs, ignore_index=True)
-        print(f"Total raw rows: {len(full_df)}")
-        
-        # 2. Process
-        processed_df = calculate_advanced_stats(full_df)
-        
-        # 3. Save
-        cols = [
-            'GAME_DATE', 'SEASON_ID', 'GAME_ID', 'TEAM_ABBREVIATION', 'MATCHUP', 'WL',
-            'PTS', 'PLUS_MINUS', 
-            'EFG_PCT', 'TOV_PCT', 'ORB_PCT', 'FTR', 
-            'REST_DAYS', 'TRAVEL_MILES', 'IS_HOME'
-        ]
-        
-        processed_df.to_csv(OUTPUT_FILE, index=False)
-        
-        print(f"\n✅ Success! Saved {len(processed_df)} rows to {OUTPUT_FILE}")
-
-    all_player_dfs = []
-    for season in SEASONS:
-        p_df = get_player_stats_for_season(season)
-        if not p_df.empty:
-            all_player_dfs.append(p_df)
-            time.sleep(1)
-            
-    if all_player_dfs:
-        full_player_df = pd.concat(all_player_dfs, ignore_index=True)
-        full_player_df.to_csv('data/raw/nba_player_stats.csv', index=False)
-        print("✅ Saved Player Stats!")
+    run_pipeline()
