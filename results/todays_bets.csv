@@ -1,6 +1,6 @@
-Date,Game,Win_Prob,Implied,Edge,Kelly,Injuries,EV,Market_Eff,CI_95%,Risk/Reward
-2025-12-25,NYK vs CLE,71.2%,68.6%,+2.6%,BET NYK $29.07,2 H / 3 A,+3.81%,0.99,"[67.1%, 75.0%]",2.18
-2025-12-25,OKC vs SAS,41.0%,26.0%,+15.0%,BET SAS $50.00 (capped from $70.92),5 H / 0 A,+96.97%,0.86,"[46.8%, 55.5%]",0.35
-2025-12-25,GSW vs DAL,42.0%,27.0%,+15.0%,BET DAL $50.00 (capped from $71.94),3 H / 3 A,+125.82%,0.81,"[56.7%, 65.3%]",0.37
-2025-12-26,LAL vs HOU,61.7%,46.7%,+15.0%,BET LAL $50.00 (capped from $98.55),1 H / 2 A,+46.11%,0.88,"[64.1%, 72.3%]",0.88
-2025-12-26,DEN vs MIN,59.1%,58.7%,+0.4%,NO BET,4 H / 0 A,+0.70%,0.97,-,-
+Game,Model_Prob,Edge,Recommendation
+MEM vs PHI,67.7%,+11.9%,BET MEM $50.00
+UTA vs BOS,39.7%,+12.9%,BET UTA $50.00
+LAL vs DET,46.7%,+1.8%,NO BET
+LAC vs SAC,79.0%,+6.4%,NO BET
+SAS vs NYK,58.3%,-1.1%,NO BET

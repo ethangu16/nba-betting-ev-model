@@ -1,114 +1,108 @@
-team,player_name,position,date,status,description
-Atlanta Hawks,Mouhamed Gueye,,F,Dec 26,Day-To-Day
-Atlanta Hawks,Dyson Daniels,,G,Dec 26,Day-To-Day
-Atlanta Hawks,N'Faly Dante,,C,Oct 1,Out
-Atlanta Hawks,Eli John Ndiaye,,C,Jul 2,Out
-Atlanta Hawks,Kristaps Porzingis,,C,Dec 29,Out
-Boston Celtics,Jordan Walsh,,G,Dec 26,Day-To-Day
-Boston Celtics,Jayson Tatum,,F,Apr 1,Out
-Brooklyn Nets,Drake Powell,,G,Dec 27,Out
-Brooklyn Nets,Cam Thomas,,G,Dec 29,Out
-Brooklyn Nets,Haywood Highsmith,,F,Jan 4,Out
-Charlotte Hornets,Mason Plumlee,,C,Dec 26,Day-To-Day
-Charlotte Hornets,Ryan Kalkbrenner,,C,Dec 26,Day-To-Day
-Charlotte Hornets,Grant Williams,,F,Dec 26,Out
-Chicago Bulls,Matas Buzelis,,F,Dec 26,Day-To-Day
-Chicago Bulls,Noa Essengue,,F,Oct 1,Out
-Cleveland Cavaliers,Evan Mobley,,C,Dec 25,Out
-Cleveland Cavaliers,Larry Nance Jr.,,F,Dec 29,Out
-Cleveland Cavaliers,Max Strus,,G,Dec 29,Out
-Dallas Mavericks,Brandon Williams,,G,Dec 25,Day-To-Day
-Dallas Mavericks,Dwight Powell,,F,Dec 25,Day-To-Day
-Dallas Mavericks,Klay Thompson,,G,Dec 25,Day-To-Day
-Dallas Mavericks,P.J. Washington,,F,Dec 25,Day-To-Day
-Dallas Mavericks,Max Christie,,G,Dec 25,Day-To-Day
-Dallas Mavericks,Dereck Lively II,,C,Oct 1,Out
-Dallas Mavericks,Kyrie Irving,,G,Feb 12,Out
-Dallas Mavericks,Dante Exum,,G,Oct 1,Out
-Denver Nuggets,Cameron Johnson,,F,Jan 2,Out
-Denver Nuggets,Tamar Bates,,G,Apr 1,Out
-Denver Nuggets,Christian Braun,,G,Jan 9,Out
-Denver Nuggets,Aaron Gordon,,F,Jan 2,Out
-Detroit Pistons,Ronald Holland II,,F,Dec 26,Day-To-Day
-Detroit Pistons,Isaac Jones,,C,Dec 27,Day-To-Day
-Golden State Warriors,L.J. Cryer,,G,Dec 28,Out
-Golden State Warriors,Al Horford,,C,Dec 25,Out
-Golden State Warriors,Seth Curry,,SG,Dec 28,Out
-Houston Rockets,Dorian Finney-Smith,,F,Dec 25,Out
-Houston Rockets,Alperen Sengun,,C,Dec 25,Day-To-Day
-Houston Rockets,Jae'Sean Tate,,F,Dec 25,Day-To-Day
-Houston Rockets,Fred VanVleet,,G,Jun 1,Out
-Indiana Pacers,Isaiah Jackson,,F,Dec 26,Day-To-Day
-Indiana Pacers,Ben Sheppard,,G,Dec 26,Out
-Indiana Pacers,Aaron Nesmith,,G,Dec 26,Out
-Indiana Pacers,Obi Toppin,,F,Feb 2,Out
-Indiana Pacers,Tyrese Haliburton,,G,Oct 1,Out
-LA Clippers,Ivica Zubac,,C,Jan 12,Out
-LA Clippers,Derrick Jones Jr.,,F,Dec 30,Out
-LA Clippers,Bradley Beal,,G,Oct 1,Out
-Los Angeles Lakers,Jaxson Hayes,,C,Dec 25,Day-To-Day
-Los Angeles Lakers,Luka Doncic,,G,Dec 25,Day-To-Day
-Los Angeles Lakers,Rui Hachimura,,F,Dec 25,Day-To-Day
-Los Angeles Lakers,Gabe Vincent,,G,Dec 28,Out
-Memphis Grizzlies,Cedric Coward,,F,Dec 26,Day-To-Day
-Memphis Grizzlies,Vince Williams Jr.,,G,Dec 26,Out
-Memphis Grizzlies,Ja Morant,,G,Dec 26,Out
-Memphis Grizzlies,Brandon Clarke,,F,Jan 15,Out
-Memphis Grizzlies,John Konchar,,G,Jan 6,Out
-Memphis Grizzlies,Zach Edey,,C,Jan 9,Out
-Memphis Grizzlies,Ty Jerome,,G,Jan 15,Out
-Memphis Grizzlies,Scotty Pippen Jr.,,G,Jan 15,Out
-Miami Heat,Pelle Larsson,,G,Dec 26,Out
-Miami Heat,Tyler Herro,,G,Dec 26,Out
-Miami Heat,Nikola Jovic,,F,Dec 26,Out
-Miami Heat,Terry Rozier,,G,Feb 20,Out
-Milwaukee Bucks,Gary Trent Jr.,,G,Dec 26,Day-To-Day
-Milwaukee Bucks,Giannis Antetokounmpo,,F,Dec 31,Out
-Milwaukee Bucks,Taurean Prince,,F,Jan 2,Out
-Minnesota Timberwolves,Jaden McDaniels,,F,Dec 25,Day-To-Day
-New Orleans Pelicans,Jordan Poole,,G,Dec 26,Day-To-Day
-New Orleans Pelicans,Herbert Jones,,F,Dec 26,Day-To-Day
-New Orleans Pelicans,Dejounte Murray,,G,Jan 2,Out
-New York Knicks,Miles McBride,,G,Jan 3,Out
-New York Knicks,Guerschon Yabusele,,F,Dec 25,Day-To-Day
-New York Knicks,Landry Shamet,,G,Jan 3,Out
-Oklahoma City Thunder,Ousmane Dieng,,F,Dec 28,Out
-Oklahoma City Thunder,Jaylin Williams,,F,Dec 28,Out
-Oklahoma City Thunder,Ajay Mitchell,,G,Dec 28,Out
-Oklahoma City Thunder,Nikola Topic,,G,Feb 20,Out
-Oklahoma City Thunder,Thomas Sorber,,C,Oct 1,Out
-Orlando Magic,Goga Bitadze,,C,Dec 26,Day-To-Day
-Orlando Magic,Tristan da Silva,,F,Dec 26,Out
-Orlando Magic,Jalen Suggs,,G,Dec 26,Out
-Orlando Magic,Moritz Wagner,,F,Dec 26,Out
-Orlando Magic,Franz Wagner,,F,Dec 26,Out
-Orlando Magic,Colin Castleton,,C,Dec 26,Out
-Philadelphia 76ers,Quentin Grimes,,G,Dec 26,Day-To-Day
-Philadelphia 76ers,VJ Edgecombe,,G,Dec 26,Day-To-Day
-Philadelphia 76ers,Dominick Barlow,,F,Dec 26,Day-To-Day
-Philadelphia 76ers,Kelly Oubre Jr.,,G,Dec 26,Out
-Philadelphia 76ers,Trendon Watford,,F,Dec 28,Out
-Phoenix Suns,Grayson Allen,,G,Dec 26,Out
-Phoenix Suns,Jalen Green,,G,Jan 7,Out
-Phoenix Suns,Koby Brea,,G,Dec 26,Out
-Portland Trail Blazers,Robert Williams III,,C,Dec 26,Day-To-Day
-Portland Trail Blazers,Jerami Grant,,F,Dec 26,Out
-Portland Trail Blazers,Scoot Henderson,,G,Dec 26,Out
-Portland Trail Blazers,Jrue Holiday,,G,Dec 26,Out
-Portland Trail Blazers,Matisse Thybulle,,G,Dec 26,Out
-Portland Trail Blazers,Blake Wesley,,G,Jan 30,Out
-Portland Trail Blazers,Damian Lillard,,G,Oct 1,Out
-Sacramento Kings,Devin Carter,,G,Dec 27,Day-To-Day
-Sacramento Kings,Keegan Murray,,F,Dec 27,Day-To-Day
-Sacramento Kings,Zach LaVine,,G,Dec 30,Out
-Sacramento Kings,Domantas Sabonis,,F,Jan 18,Out
-Sacramento Kings,Drew Eubanks,,F,Jan 4,Out
-Toronto Raptors,Jakob Poeltl,,C,Dec 26,Day-To-Day
-Toronto Raptors,RJ Barrett,,F,Dec 28,Out
-Utah Jazz,Jusuf Nurkic,,C,Dec 26,Day-To-Day
-Utah Jazz,Lauri Markkanen,,F,Dec 26,Day-To-Day
-Utah Jazz,Georges Niang,,F,Dec 30,Out
-Utah Jazz,Walker Kessler,,C,Oct 1,Out
-Washington Wizards,Bub Carrington,,G,Dec 26,Day-To-Day
-Washington Wizards,Corey Kispert,,F,Dec 26,Day-To-Day
-Washington Wizards,Cam Whitmore,,F,Jan 27,Out
+team,player_name,position,date,status
+Atlanta Hawks,Trae Young,G,Dec 31,Day-To-Day
+Atlanta Hawks,N'Faly Dante,C,Oct 1,Out
+Atlanta Hawks,Eli John Ndiaye,C,Jul 2,Out
+Boston Celtics,Chris Boucher,F,Jan 1,Out
+Boston Celtics,Amari Williams,F,Dec 31,Day-To-Day
+Boston Celtics,Jayson Tatum,F,Apr 1,Out
+Brooklyn Nets,Haywood Highsmith,F,Jan 4,Out
+Charlotte Hornets,Pat Connaughton,G,Dec 31,Day-To-Day
+Charlotte Hornets,Ryan Kalkbrenner,C,Jan 2,Out
+Charlotte Hornets,Mason Plumlee,C,Jan 2,Out
+Charlotte Hornets,Miles Bridges,F,Dec 31,Day-To-Day
+Charlotte Hornets,Kon Knueppel,G,Dec 31,Day-To-Day
+Charlotte Hornets,Grant Williams,F,Jan 5,Out
+Chicago Bulls,Josh Giddey,G,Jan 22,Out
+Chicago Bulls,Lachlan Olbrich,C,Jan 2,Out
+Chicago Bulls,Trentyn Flowers,F,Jan 2,Out
+Chicago Bulls,Emanuel Miller,F,Jan 2,Out
+Chicago Bulls,Coby White,G,Jan 2,Out
+Chicago Bulls,Zach Collins,F,Jan 5,Out
+Chicago Bulls,Noa Essengue,F,Oct 1,Out
+Cleveland Cavaliers,Larry Nance Jr.,F,Jan 10,Out
+Cleveland Cavaliers,Max Strus,G,Jan 10,Out
+Cleveland Cavaliers,Sam Merrill,G,Dec 31,Day-To-Day
+Dallas Mavericks,Anthony Davis,F,Jan 1,Out
+Dallas Mavericks,Dereck Lively II,C,Oct 1,Out
+Dallas Mavericks,Kyrie Irving,G,Feb 12,Out
+Dallas Mavericks,Dante Exum,G,Oct 1,Out
+Denver Nuggets,Julian Strawther,G,Dec 31,Day-To-Day
+Denver Nuggets,Nikola Jokic,C,Feb 1,Out
+Denver Nuggets,Aaron Gordon,F,Jan 5,Out
+Denver Nuggets,Christian Braun,G,Jan 5,Out
+Denver Nuggets,Cameron Johnson,F,Jan 22,Out
+Denver Nuggets,Tamar Bates,G,Apr 1,Out
+Detroit Pistons,Caris LeVert,G,Jan 1,Out
+Detroit Pistons,Wendell Moore Jr.,F,Dec 30,Day-To-Day
+Golden State Warriors,L.J. Cryer,G,Dec 31,Day-To-Day
+Golden State Warriors,Seth Curry,SG,Jan 13,Out
+Houston Rockets,Alperen Sengun,C,Jan 1,Day-To-Day
+Houston Rockets,Steven Adams,C,Jan 1,Day-To-Day
+Houston Rockets,Fred VanVleet,G,Jun 1,Out
+Indiana Pacers,Isaiah Jackson,F,Jan 2,Out
+Indiana Pacers,T.J. McConnell,G,Dec 31,Day-To-Day
+Indiana Pacers,Ben Sheppard,G,Dec 31,Out
+Indiana Pacers,Obi Toppin,F,Feb 2,Out
+Indiana Pacers,Tyrese Haliburton,G,Oct 1,Out
+LA Clippers,Bogdan Bogdanovic,G,Jan 5,Out
+LA Clippers,Ivica Zubac,C,Jan 12,Out
+LA Clippers,Bradley Beal,G,Oct 1,Out
+Los Angeles Lakers,Rui Hachimura,F,Jan 6,Out
+Los Angeles Lakers,Gabe Vincent,G,Jan 2,Out
+Los Angeles Lakers,Austin Reaves,G,Jan 26,Out
+Memphis Grizzlies,Vince Williams Jr.,G,Jan 2,Out
+Memphis Grizzlies,Kentavious Caldwell-Pope,G,Jan 2,Out
+Memphis Grizzlies,Brandon Clarke,F,Jan 15,Out
+Memphis Grizzlies,John Konchar,G,Jan 6,Out
+Memphis Grizzlies,Zach Edey,C,Jan 9,Out
+Memphis Grizzlies,Ty Jerome,G,Jan 15,Out
+Memphis Grizzlies,Scotty Pippen Jr.,G,Jan 15,Out
+Miami Heat,Pelle Larsson,G,Jan 1,Day-To-Day
+Miami Heat,Tyler Herro,G,Jan 3,Out
+Miami Heat,Terry Rozier,G,Feb 20,Out
+Milwaukee Bucks,Taurean Prince,F,Jan 2,Out
+Minnesota Timberwolves,Terrence Shannon Jr.,G,Jan 11,Out
+New Orleans Pelicans,Herbert Jones,F,Jan 2,Out
+New Orleans Pelicans,Dejounte Murray,G,Jan 2,Out
+New York Knicks,Tyler Kolek,G,Dec 31,Day-To-Day
+New York Knicks,Ariel Hukporti,C,Dec 31,Day-To-Day
+New York Knicks,Mitchell Robinson,C,Jan 2,Out
+New York Knicks,Landry Shamet,G,Jan 3,Out
+New York Knicks,Josh Hart,G,Jan 2,Out
+Oklahoma City Thunder,Ousmane Dieng,F,Jan 5,Out
+Oklahoma City Thunder,Jaylin Williams,F,Jan 5,Out
+Oklahoma City Thunder,Isaiah Hartenstein,C,Jan 2,Out
+Oklahoma City Thunder,Brooks Barnhizer,F,Dec 30,Day-To-Day
+Oklahoma City Thunder,Nikola Topic,G,Feb 20,Out
+Oklahoma City Thunder,Thomas Sorber,C,Oct 1,Out
+Orlando Magic,Jonathan Isaac,F,Dec 31,Day-To-Day
+Orlando Magic,Jalen Suggs,G,Dec 31,Out
+Orlando Magic,Desmond Bane,G,Dec 31,Day-To-Day
+Orlando Magic,Franz Wagner,F,Jan 4,Out
+Orlando Magic,Moritz Wagner,F,Jan 9,Out
+Orlando Magic,Colin Castleton,C,Jan 4,Out
+Philadelphia 76ers,Kelly Oubre Jr.,G,Jan 1,Out
+Philadelphia 76ers,Trendon Watford,F,Jan 5,Out
+Phoenix Suns,Ryan Dunn,F,Dec 31,Day-To-Day
+Phoenix Suns,Grayson Allen,G,Dec 31,Out
+Phoenix Suns,Jalen Green,G,Jan 7,Out
+Portland Trail Blazers,Kris Murray,F,Dec 31,Day-To-Day
+Portland Trail Blazers,Jerami Grant,F,Jan 2,Out
+Portland Trail Blazers,Matisse Thybulle,G,Jan 5,Out
+Portland Trail Blazers,Scoot Henderson,G,Jan 5,Out
+Portland Trail Blazers,Jrue Holiday,G,Jan 5,Out
+Portland Trail Blazers,Blake Wesley,G,Jan 30,Out
+Portland Trail Blazers,Damian Lillard,G,Oct 1,Out
+Sacramento Kings,Zach LaVine,G,Jan 1,Out
+Sacramento Kings,Domantas Sabonis,F,Jan 18,Out
+San Antonio Spurs,Devin Vassell,G,Jan 2,Out
+San Antonio Spurs,Stephon Castle,G,Dec 31,Day-To-Day
+Toronto Raptors,Jakob Poeltl,C,Jan 7,Out
+Utah Jazz,Georges Niang,F,Jan 5,Out
+Utah Jazz,Kevin Love,F,Jan 1,Out
+Utah Jazz,Ace Bailey,G,Jan 1,Out
+Utah Jazz,Walker Kessler,C,Oct 1,Out
+Washington Wizards,Malaki Branham,G,Dec 31,Day-To-Day
+Washington Wizards,Kyshawn George,F,Jan 2,Out
+Washington Wizards,Corey Kispert,F,Jan 2,Out
+Washington Wizards,Cam Whitmore,F,Jan 27,Out

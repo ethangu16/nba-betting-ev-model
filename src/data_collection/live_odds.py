@@ -33,7 +33,7 @@ def get_live_odds():
         home_team = game['home_team']
         away_team = game['away_team']
         
-        # We will initialize vars to None so we can handle missing lines
+        # We will initialise vars to None so we can handle missing lines
         home_ml = None
         away_ml = None
         home_spread = None
@@ -71,8 +71,8 @@ def get_live_odds():
                 elif market['key'] == 'spreads':
                     for outcome in market['outcomes']:
                         if outcome['name'] == home_team:
-                            home_spread = outcome['point']      # e.g. -5.5
-                            home_spread_odds = outcome['price'] # e.g. -110
+                            home_spread = outcome['point']
+                            home_spread_odds = outcome['price']
                         elif outcome['name'] == away_team:
                             away_spread = outcome['point']
                             away_spread_odds = outcome['price']
@@ -99,7 +99,7 @@ def get_live_odds():
         print(f"✅ Success! Saved {len(df)} games to {filename}")
         print(df[['HOME_TEAM', 'HOME_ML', 'HOME_SPREAD']].head())
     else:
-        print("⚠️ No odds found. (Are there games scheduled for today?)")
+        print("⚠️ No odds found.")
 
 if __name__ == "__main__":
     get_live_odds()
