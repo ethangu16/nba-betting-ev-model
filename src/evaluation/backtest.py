@@ -14,22 +14,26 @@ MODEL_PATH_JOBLIB = 'models/nba_xgb_model.joblib'
 LOG_PATH = 'results/backtest_log.csv'
 CHART_PATH = 'results/backtest_chart.png'
 
-# --- STRATEGY SETTINGS ---
+# --- STRATEGY SETTINGS (CONSERVATIVE MODE) ---
 INITIAL_BANKROLL = 1000
-KELLY_FRACTION = 0.25
-MAX_BET_PCT = 0.03
+KELLY_FRACTION = 0.15  # 🟢 Reduced from 0.25 to 0.15 (More stable)
+MAX_BET_PCT = 0.03     # Global hard cap (3%)
 
 # 🛑 SAFETY VALVES
 MIN_EDGE = 0.015       
 MAX_EDGE = 0.15        
+MAX_LONGSHOT_ODDS = 2.85 # (+185) - Definition of "Low Underdog"
 
 # --- FEATURES ---
 FEATURES = [
-    'ELO_TEAM', 'ELO_OPP', 
-    'IS_HOME', 'IS_B2B', 'IS_3IN4',              
-    'ROLL_OFF_RTG', 'ROLL_DEF_RTG', 'ROLL_PACE', 
-    'ROLL_EFG_PCT', 'ROLL_TOV_PCT', 'ROLL_ORB_PCT', 'ROLL_FTR',
-    'ROLL_ROSTER_TALENT_SCORE',
+    'ELO_TEAM', 'ELO_OPP', 'IS_HOME', 'IS_B2B', 'IS_3IN4',
+    'ROSTER_TALENT_SCORE',
+    'SMA_20_OFF_RTG', 'SMA_20_DEF_RTG', 'SMA_20_PACE', 'SMA_20_EFG_PCT',
+    'SMA_20_TOV_PCT', 'SMA_20_ORB_PCT', 'SMA_20_FTR', 'SMA_20_ROSTER_TALENT_SCORE',
+    'EWMA_10_OFF_RTG', 'EWMA_10_DEF_RTG', 'EWMA_10_PACE', 'EWMA_10_EFG_PCT',
+    'EWMA_10_TOV_PCT', 'EWMA_10_ORB_PCT', 'EWMA_10_FTR', 'EWMA_10_ROSTER_TALENT_SCORE',
+    'EWMA_5_OFF_RTG', 'EWMA_5_DEF_RTG', 'EWMA_5_PACE', 'EWMA_5_EFG_PCT',
+    'EWMA_5_TOV_PCT', 'EWMA_5_ORB_PCT', 'EWMA_5_FTR', 'EWMA_5_ROSTER_TALENT_SCORE',
 ]
 
 def load_model():
@@ -48,7 +52,7 @@ def get_moneyline_probs(ml):
     return decimal, implied
 
 def run_backtest():
-    print("--- STARTING NBA BACKTEST ---")
+    print("--- STARTING NBA BACKTEST (CONSERVATIVE) ---")
     
     # 1. Load Data
     df = pd.read_csv(DATA_PATH)
@@ -77,8 +81,6 @@ def run_backtest():
     
     wins, losses, skipped = 0, 0, 0
     skipped_high_edge = 0
-    
-    # NEW: Track total money wagered to calculate Yield
     total_wagered = 0
     
     for idx, row in test_df.iterrows():
@@ -96,17 +98,27 @@ def run_backtest():
                 skipped_high_edge += 1
                 continue 
             
+            # Standard Kelly Calculation
             b = decimal_odds - 1
             p = my_prob
             q = 1 - p
             kelly = (b * p - q) / b
             
             if kelly > 0:
-                bet_pct = min(kelly * KELLY_FRACTION, MAX_BET_PCT)
-                bet_amount = bankroll * bet_pct
+                # 1. Apply Conservative Fraction
+                raw_bet_pct = kelly * KELLY_FRACTION
+                
+                # 🟢 2. DYNAMIC LONGSHOT CAP
+                # If the odds are high (low probability underdog), we force a smaller cap.
+                # Logic: Even if value is high, variance is dangerous.
+                current_cap = MAX_BET_PCT
+                if decimal_odds >= MAX_LONGSHOT_ODDS:
+                    current_cap = 0.01  # Hard cap of 1% for longshots (+185 or longer)
+                
+                final_pct = min(raw_bet_pct, current_cap)
+                bet_amount = bankroll * final_pct
         
         if bet_amount > 0:
-            # Add to turnover tracking
             total_wagered += bet_amount
             
             profit = 0
@@ -129,6 +141,7 @@ def run_backtest():
                 'My_Prob': f"{my_prob:.1%}",
                 'Vegas_Prob': f"{implied_prob:.1%}",
                 'Edge': f"{edge:.1%}",
+                'Bet_Pct': f"{bet_amount/bankroll:.1%}", # Log how much of bankroll was risked
                 'Bet_Amt': f"${bet_amount:.2f}",
                 'Profit': profit,
                 'Bankroll': bankroll
@@ -140,12 +153,8 @@ def run_backtest():
     total_bets = wins + losses
     net_profit = bankroll - INITIAL_BANKROLL
     
-    # 1. Total ROI (Bankroll Growth)
-    # Formula: (Ending - Starting) / Starting
     bankroll_growth = (net_profit / INITIAL_BANKROLL) * 100
     
-    # 2. ROI Per Bet (Yield)
-    # Formula: Total Profit / Total Amount Wagered
     if total_wagered > 0:
         roi_yield = (net_profit / total_wagered) * 100
     else:
@@ -154,16 +163,15 @@ def run_backtest():
     win_rate = (wins / total_bets * 100) if total_bets > 0 else 0
     
     print("\n" + "="*50)
-    print(f"💰 REALISTIC RESULT")
+    print(f"💰 CONSERVATIVE RESULT (Low Risk Mode)")
     print(f"   Starting Bankroll:   ${INITIAL_BANKROLL}")
     print(f"   Ending Bankroll:     ${bankroll:,.2f}")
     print(f"   Total Net Profit:    ${net_profit:,.2f}")
     print("-" * 50)
-    print(f"   📈 TOTAL RETURN:     {bankroll_growth:+.2f}%  (Bankroll Growth)")
-    print(f"   💵 YIELD (PER BET):  {roi_yield:+.2f}%  (True ROI)")
+    print(f"   📈 TOTAL RETURN:     {bankroll_growth:+.2f}%")
+    print(f"   💵 YIELD (PER BET):  {roi_yield:+.2f}%")
     print("-" * 50)
     print(f"   Total Bets:          {total_bets}")
-    print(f"   Total Wagered:       ${total_wagered:,.2f}")
     print(f"   Win Rate:            {win_rate:.1f}%")
     print(f"   Skipped (Suspicious):{skipped_high_edge}")
     print("="*50)

@@ -54,9 +54,6 @@ def main():
         return
 
     # 5. Scrape Today's Injuries (Get the "Out" list)
-    # Note: Assuming your scraper is named correctly. 
-    # If it is inside predict_today, this step might be redundant, 
-    # but strictly speaking, data collection should happen before prediction.
     if not run_step("src/data_collection/scrape_injuries.py", "5. Injury Scraping"):
         return
 

@@ -1,6 +1,7 @@
 GAME_DATE,HOME_TEAM,AWAY_TEAM,HOME_ML,AWAY_ML,HOME_SPREAD,HOME_SPREAD_ODDS,AWAY_SPREAD,AWAY_SPREAD_ODDS,BOOKMAKER
-2025-12-31T01:10:00Z,Memphis Grizzlies,Philadelphia 76ers,-102,-116,1.0,-110,-1.0,-110,FanDuel
-2025-12-31T02:10:00Z,Utah Jazz,Boston Celtics,235,-290,8.5,-114,-8.5,-106,FanDuel
-2025-12-31T03:40:00Z,Los Angeles Lakers,Detroit Pistons,118,-138,2.5,-110,-2.5,-110,FanDuel
-2025-12-31T04:10:00Z,Los Angeles Clippers,Sacramento Kings,-420,330,-10.0,-114,10.0,-106,FanDuel
-2026-01-01T00:10:00Z,San Antonio Spurs,New York Knicks,-132,112,-2.0,-110,2.0,-110,FanDuel
+2026-01-06T19:00:00Z,Indiana Pacers,Cleveland Cavaliers,180,-215,5.5,-110,-5.5,-110,FanDuel
+2026-01-06T19:00:00Z,Washington Wizards,Orlando Magic,220,-270,7.0,-110,-7.0,-110,FanDuel
+2026-01-06T20:00:00Z,Memphis Grizzlies,San Antonio Spurs,180,-215,5.5,-110,-5.5,-110,FanDuel
+2026-01-06T20:00:00Z,New Orleans Pelicans,Los Angeles Lakers,168,-200,5.0,-110,-5.0,-110,FanDuel
+2026-01-06T20:00:00Z,Minnesota Timberwolves,Miami Heat,-225,188,-5.5,-110,5.5,-110,FanDuel
+2026-01-06T23:00:00Z,Sacramento Kings,Dallas Mavericks,172,-205,5.5,-110,-5.5,-110,FanDuel

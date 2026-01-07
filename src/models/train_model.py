@@ -20,14 +20,24 @@ def train():
         return
 
     # 1. Define Features
+    # 🟢 UPDATE THIS LIST in train_model.py AND predict_today.py
     features = [
-            'ELO_TEAM', 'ELO_OPP', 
-            'IS_HOME', 
-            'IS_B2B', 'IS_3IN4',              
-            'ROLL_OFF_RTG', 'ROLL_DEF_RTG',   
-            'ROLL_PACE', 
-            'ROLL_EFG_PCT', 'ROLL_TOV_PCT', 'ROLL_ORB_PCT', 'ROLL_FTR',
-            'ROLL_ROSTER_TALENT_SCORE',
+        # Core Context
+        'ELO_TEAM', 'ELO_OPP', 'IS_HOME', 'IS_B2B', 'IS_3IN4',
+        'ROSTER_TALENT_SCORE', # Use the raw score, or a rolling version if you made one
+        
+        # 🟢 NEW: The 3 Time Windows for Every Stat
+        # SMA 20 (Stability)
+        'SMA_20_OFF_RTG', 'SMA_20_DEF_RTG', 'SMA_20_PACE', 'SMA_20_EFG_PCT',
+        'SMA_20_TOV_PCT', 'SMA_20_ORB_PCT', 'SMA_20_FTR', 'SMA_20_ROSTER_TALENT_SCORE',
+        
+        # EWMA 10 (Momentum)
+        'EWMA_10_OFF_RTG', 'EWMA_10_DEF_RTG', 'EWMA_10_PACE', 'EWMA_10_EFG_PCT',
+        'EWMA_10_TOV_PCT', 'EWMA_10_ORB_PCT', 'EWMA_10_FTR', 'EWMA_10_ROSTER_TALENT_SCORE',
+
+        # EWMA 5 (Hot/Cold Streaks)
+        'EWMA_5_OFF_RTG', 'EWMA_5_DEF_RTG', 'EWMA_5_PACE', 'EWMA_5_EFG_PCT',
+        'EWMA_5_TOV_PCT', 'EWMA_5_ORB_PCT', 'EWMA_5_FTR', 'EWMA_5_ROSTER_TALENT_SCORE',
     ]
     
     target = 'TARGET_WIN'

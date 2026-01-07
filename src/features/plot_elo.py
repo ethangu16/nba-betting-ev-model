@@ -1,103 +1,104 @@
 import pandas as pd
-import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
-import seaborn as sns
+import plotly.graph_objects as go
 import os
 
 # --- CONFIG ---
 DATA_PATH = 'data/processed/nba_model.csv'
-OUTPUT_IMAGE = 'results/elo_trajectory_2025_26.png'
-SEASON_START = '2025-10-01'  # Start of 2025-26 Season
+OUTPUT_HTML = 'results/elo_trajectory_interactive.html'
+SEASON_START = '2025-10-01'
 
-def plot_elo():
+# NBA Colors (Optional: Makes the chart look much professional)
+TEAM_COLORS = {
+    'ATL': '#E03A3E', 'BOS': '#007A33', 'BKN': '#000000', 'CHA': '#1D1160', 
+    'CHI': '#CE1141', 'CLE': '#860038', 'DAL': '#00538C', 'DEN': '#FEC524', 
+    'DET': '#C8102E', 'GSW': '#1D428A', 'HOU': '#CE1141', 'IND': '#002D62', 
+    'LAC': '#C8102E', 'LAL': '#552583', 'MEM': '#5D76A9', 'MIA': '#98002E', 
+    'MIL': '#00471B', 'MIN': '#0C2340', 'NOP': '#0C2340', 'NYK': '#006BB6', 
+    'OKC': '#007AC1', 'ORL': '#0077C0', 'PHI': '#006BB6', 'PHX': '#1D1160', 
+    'POR': '#E03A3E', 'SAC': '#5A2D81', 'SAS': '#C4CED4', 'TOR': '#CE1141', 
+    'UTA': '#002B5C', 'WAS': '#002B5C'
+}
+
+def plot_elo_interactive():
     # 1. Load Data
     if not os.path.exists(DATA_PATH):
-        print(f"❌ Error: {DATA_PATH} not found. Run engineer.py first.")
+        print(f"❌ Error: {DATA_PATH} not found.")
         return
 
     df = pd.read_csv(DATA_PATH)
     df['GAME_DATE'] = pd.to_datetime(df['GAME_DATE'])
     
-    # 2. Filter for 2025-2026 Season
+    # 2. Filter Season
     season_df = df[df['GAME_DATE'] >= pd.Timestamp(SEASON_START)].copy()
-    
     if season_df.empty:
-        print(f"⚠️ No games found after {SEASON_START}. Check your dataset dates.")
+        print("⚠️ No data found for this season.")
         return
 
-    print(f"📈 Plotting Elo for {len(season_df)} games...")
+    print(f"📈 Generating Interactive Elo Chart for {len(season_df)} games...")
 
-    # 3. Setup Plot
-    plt.figure(figsize=(16, 10))
-    sns.set_style("darkgrid")
-    
-    # Get top 5 and bottom 5 teams for highlighting labels
-    latest_date = season_df['GAME_DATE'].max()
-    current_elos = season_df[season_df['GAME_DATE'] == latest_date].sort_values('ELO_TEAM', ascending=False)
-    
-    top_teams = current_elos.head(5)['TEAM_ABBREVIATION'].tolist()
-    bottom_teams = current_elos.tail(3)['TEAM_ABBREVIATION'].tolist()
-    highlight_teams = set(top_teams + bottom_teams)
+    # 3. Initialize Plotly Figure
+    fig = go.Figure()
 
-    # 4. Plot Lines
-    # We loop manually to control z-order (highlighted teams on top)
-    teams = season_df['TEAM_ABBREVIATION'].unique()
+    # 4. Loop Through Every Team
+    teams = sorted(season_df['TEAM_ABBREVIATION'].unique())
     
-    # Define a custom color palette or use a standard one
-    palette = sns.color_palette("tab20", n_colors=len(teams))
-    team_colors = dict(zip(teams, palette))
-
     for team in teams:
         team_data = season_df[season_df['TEAM_ABBREVIATION'] == team].sort_values('GAME_DATE')
         
-        # Determine style based on rank
-        if team in top_teams:
-            alpha = 1.0
-            linewidth = 3.5
-            zorder = 10
-            label = team
-        elif team in bottom_teams:
-            alpha = 0.8
-            linewidth = 2.5
-            zorder = 9
-            label = team
-        else:
-            alpha = 0.15  # Fade out the middle of the pack
-            linewidth = 1.5
-            zorder = 1
-            label = None # Don't clutter legend
-            
-        plt.plot(team_data['GAME_DATE'], team_data['ELO_TEAM'], 
-                 label=label, color=team_colors[team], 
-                 alpha=alpha, linewidth=linewidth, zorder=zorder)
+        # Get color (fallback to grey if missing)
+        color = TEAM_COLORS.get(team, '#999999')
+        
+        # Add the Line Trace
+        fig.add_trace(go.Scatter(
+            x=team_data['GAME_DATE'],
+            y=team_data['ELO_TEAM'],
+            mode='lines',
+            name=team,
+            line=dict(color=color, width=2),
+            opacity=0.8,
+            hovertemplate=f"<b>{team}</b><br>Date: %{{x}}<br>Elo: %{{y:.0f}}<extra></extra>"
+        ))
 
-        # Add label at the end of the line
+        # Add a text label at the very end of the line
         last_game = team_data.iloc[-1]
-        if team in highlight_teams:
-            plt.text(last_game['GAME_DATE'], last_game['ELO_TEAM'], f" {team}", 
-                     fontsize=10, fontweight='bold', color=team_colors[team], va='center')
+        fig.add_trace(go.Scatter(
+            x=[last_game['GAME_DATE']],
+            y=[last_game['ELO_TEAM']],
+            mode='text',
+            text=[f"<b>{team}</b>"],
+            textposition="middle right",
+            showlegend=False,
+            hoverinfo='skip',
+            textfont=dict(color=color, size=10)
+        ))
 
-    # 5. Formatting
-    plt.title('NBA Team Elo Ratings (2025-2026 Season)', fontsize=20, weight='bold')
-    plt.xlabel('Date', fontsize=14)
-    plt.ylabel('Elo Rating', fontsize=14)
-    
-    # Add "Average" line
-    plt.axhline(y=1500, color='black', linestyle='--', alpha=0.5, label='League Average (1500)')
-    
-    # Format X-Axis Dates
-    plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%b %Y'))
-    plt.gca().xaxis.set_major_locator(mdates.MonthLocator())
-    plt.xticks(rotation=0)
-    
-    plt.legend(bbox_to_anchor=(1.02, 1), loc='upper left', title='Key Teams')
-    plt.tight_layout()
-    
-    # 6. Save
-    os.makedirs(os.path.dirname(OUTPUT_IMAGE), exist_ok=True)
-    plt.savefig(OUTPUT_IMAGE, dpi=300)
-    print(f"✅ Elo Chart saved to {OUTPUT_IMAGE}")
-    plt.show()
+    # 5. Add "League Average" Line
+    fig.add_shape(
+        type="line",
+        x0=season_df['GAME_DATE'].min(),
+        y0=1500,
+        x1=season_df['GAME_DATE'].max(),
+        y1=1500,
+        line=dict(color="black", width=2, dash="dash"),
+    )
+
+    # 6. Formatting Layout
+    fig.update_layout(
+        title=dict(text="<b>NBA Elo Trajectory (2025-26)</b>", font=dict(size=24)),
+        xaxis=dict(title="Date", showgrid=True),
+        yaxis=dict(title="Elo Rating", showgrid=True),
+        template="plotly_white",
+        height=900,  # Tall chart to fit all labels
+        width=1400,
+        showlegend=True,
+        margin=dict(r=50) # Right margin for labels
+    )
+
+    # 7. Save
+    os.makedirs(os.path.dirname(OUTPUT_HTML), exist_ok=True)
+    fig.write_html(OUTPUT_HTML)
+    print(f"✅ Interactive Chart saved to: {OUTPUT_HTML}")
+    print("👉 Open this file in your browser to interact and zoom!")
 
 if __name__ == "__main__":
-    plot_elo()
+    plot_elo_interactive()

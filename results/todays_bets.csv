@@ -1,6 +1,7 @@
-Game,Model_Prob,Edge,Recommendation
-MEM vs PHI,67.7%,+11.9%,BET MEM $50.00
-UTA vs BOS,39.7%,+12.9%,BET UTA $50.00
-LAL vs DET,46.7%,+1.8%,NO BET
-LAC vs SAC,79.0%,+6.4%,NO BET
-SAS vs NYK,58.3%,-1.1%,NO BET
+Game,Model_Pick,Win_Prob,Vegas_Odds,Edge,Action,Pot_Profit
+IND vs CLE,CLE,79.6%,-215,+11.4%,BET CLE $30.00,+$13.95
+WAS vs ORL,ORL,51.0%,+220,+17.7%,BET WAS $30.00,+$66.00
+MEM vs SAS,SAS,64.9%,-,-0.6%,NO BET,-
+NOP vs LAL,LAL,77.6%,-200,+10.9%,BET LAL $30.00,+$15.00
+MIN vs MIA,MIN,64.5%,-,+0.8%,NO BET,-
+SAC vs DAL,DAL,59.9%,+172,+3.3%,BET SAC $7.80,+$13.41

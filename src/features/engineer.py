@@ -76,17 +76,16 @@ def add_fatigue_features(df):
 
 def calculate_roster_strength_gamescore(df_games):
     """
-    Calculates roster strength using recent form (Rolling Game Score).
+    Calculates roster strength using RAPTOR (Box Score + On/Off Blend).
     """
-    print("\n Calculating Roster Strength via Recent Game Score...")
+    print("\n Calculating Roster Strength via RAPTOR Logic...")
     if not os.path.exists(PLAYER_STATS_PATH): return df_games
     
     # 1. Load and Prep Player Stats
     df_players = pd.read_csv(PLAYER_STATS_PATH)
     df_players['GAME_DATE'] = pd.to_datetime(df_players['GAME_DATE'])
     
-    # 2. Calculate Hollinger Game Score for every player
-    # Formula: PTS + 0.4*FGM - 0.7*FGA - 0.4*(FTA - FTM) + 0.7*OREB + 0.3*DREB + STL + 0.7*AST + 0.7*BLK - 0.4*PF - TOV
+    # 2. Calculate Hollinger Game Score (The "Box" Component)
     df_players['GAME_SCORE'] = (
         df_players['PTS'] + 
         0.4 * df_players['FGM'] - 
@@ -101,17 +100,35 @@ def calculate_roster_strength_gamescore(df_games):
         df_players['TOV']
     )
     
-    # 3. Create Rolling Average (Last 10 games) for each player
+    # 🟢 3. Calculate RAPTOR Score (Box + On/Off Blend)
+    def calculate_raptor(row):
+        # Avoid noise from garbage time players (<5 mins)
+        if row['MIN'] < 5: 
+            return row['GAME_SCORE'] 
+        
+        # Box Component
+        box_val = row['GAME_SCORE']
+        
+        # On/Off Component (Approximate Net Rating)
+        # We cap it at +/- 30 to prevent massive outliers from 5-minute stints
+        impact_val = (row['PLUS_MINUS'] / row['MIN']) * 48
+        impact_val = max(min(impact_val, 30), -30)
+        
+        # Blend (50/50 Split)
+        return (box_val * 0.5) + (impact_val * 0.5)
+
+    df_players['RAPTOR_SCORE'] = df_players.apply(calculate_raptor, axis=1)
+    
+    # 4. Create Rolling Average (Last 10 games) using RAPTOR
     df_players = df_players.sort_values(['PLAYER_ID', 'GAME_DATE'])
-    df_players['ROLLING_SCORE'] = df_players.groupby('PLAYER_ID')['GAME_SCORE'].transform(
+    df_players['ROLLING_SCORE'] = df_players.groupby('PLAYER_ID')['RAPTOR_SCORE'].transform(
         lambda x: x.shift(1).rolling(window=10, min_periods=1).mean()
     ).fillna(0)
     
-    # 4. Map to Games
-    # For every game, find the players who played, look up their ROLLING score (not today's score), and sum top 8
+    # 5. Map to Games
     print("  > Mapping players to games...")
     
-    # We create a lookup dict: (GameID, TeamAbbr) -> List of Player Rolling Scores
+    # We create a lookup dict: (GameID, TeamAbbr) -> List of Player Rolling RAPTOR Scores
     df_players_slim = df_players[['GAME_ID', 'TEAM_ABBREVIATION', 'ROLLING_SCORE']]
     game_rosters = df_players_slim.groupby(['GAME_ID', 'TEAM_ABBREVIATION'])['ROLLING_SCORE'].apply(list).to_dict()
     
@@ -124,7 +141,7 @@ def calculate_roster_strength_gamescore(df_games):
             roster_scores.append(0)
             continue
             
-        # Sum top 8 active players based on their RECENT form
+        # Sum top 8 active players based on their RECENT RAPTOR form
         player_scores.sort(reverse=True)
         top_8 = sum(player_scores[:8])
         roster_scores.append(top_8)
@@ -133,12 +150,35 @@ def calculate_roster_strength_gamescore(df_games):
     return df_games
 
 def create_rolling_features(df):
-    print("Creating Rolling Features...")
+    """
+    Creates multiple rolling windows:
+    1. SMA_10: Stability/Class (Simple Moving Average)
+    2. EWMA_10: Momentum (Exponential Weighted)
+    3. EWMA_5: Streak (Exponential Weighted)
+    """
+    print("Creating Rolling Features")
     df = df.sort_values(['TEAM_ABBREVIATION', 'GAME_DATE'])
+    
     metrics = ['OFF_RTG', 'DEF_RTG', 'PACE', 'EFG_PCT', 'TOV_PCT', 'ORB_PCT', 'FTR', 'ROSTER_TALENT_SCORE']
+    
     for col in metrics:
         if col not in df.columns: continue
-        df[f'ROLL_{col}'] = df.groupby('TEAM_ABBREVIATION')[col].transform(lambda x: x.shift(1).rolling(10, min_periods=3).mean())
+        
+        # 1. Stability Feature (SMA-20) - Long term "Class"
+        df[f'SMA_20_{col}'] = df.groupby('TEAM_ABBREVIATION')[col].transform(
+            lambda x: x.shift(1).rolling(10, min_periods=5).mean()
+        )
+        
+        # 2. Form Feature (EWMA-10) - Recent "Momentum"
+        df[f'EWMA_10_{col}'] = df.groupby('TEAM_ABBREVIATION')[col].transform(
+            lambda x: x.shift(1).ewm(span=10, adjust=False).mean()
+        )
+        
+        # 3. Streak Feature (EWMA-5) - Immediate "Hot/Cold"
+        df[f'EWMA_5_{col}'] = df.groupby('TEAM_ABBREVIATION')[col].transform(
+            lambda x: x.shift(1).ewm(span=5, adjust=False).mean()
+        )
+            
     return df
 
 def main():
@@ -166,7 +206,9 @@ def main():
     df = calculate_roster_strength_gamescore(df)
     df = create_rolling_features(df)
     
-    df_clean = df.dropna(subset=['ROLL_OFF_RTG', 'ELO_TEAM'])
+    # Drop rows where we don't have enough history for the primary momentum feature
+    df_clean = df.dropna(subset=['EWMA_10_OFF_RTG', 'ELO_TEAM'])
+    
     os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
     df_clean.to_csv(OUTPUT_PATH, index=False)
     print(f"\n✅ Success! Saved to {OUTPUT_PATH}")

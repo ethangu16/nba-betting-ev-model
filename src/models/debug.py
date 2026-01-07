@@ -1,86 +1,98 @@
-import joblib
 import pandas as pd
 import numpy as np
-import xgboost as xgb
 import os
-import sklearn
 
-MODEL_PATH = 'models/nba_xgb_model.joblib'
+# --- CONFIG ---
+PLAYER_PATH = 'data/raw/nba_player_stats.csv'
+OUTPUT_PATH = 'results/player_form_history.csv'
+TARGET_PLAYER = 'Kon Knueppel'
+SEASON_START = '2025-10-01'
 
-# 🟢 HARDCODED FEATURE NAMES (Must match train_model.py order exactly)
-FEATURE_NAMES = [
-    'ELO_TEAM', 'ELO_OPP', 
-    'IS_HOME', 
-    'IS_B2B', 'IS_3IN4',              
-    'ROLL_OFF_RTG', 'ROLL_DEF_RTG',   
-    'ROLL_PACE', 
-    'ROLL_EFG_PCT', 'ROLL_TOV_PCT', 'ROLL_ORB_PCT', 'ROLL_FTR',
-    'ROLL_ROSTER_TALENT_SCORE',
-]
+def audit_player_history():
+    if not os.path.exists(PLAYER_PATH):
+        print(f"❌ Error: {PLAYER_PATH} not found.")
+        return
 
-def inspect():
-    print(f"🔍 INSPECTING MODEL: {MODEL_PATH}")
-    print(f"   Scikit-Learn Version: {sklearn.__version__}")
+    df = pd.read_csv(PLAYER_PATH)
     
-    if not os.path.exists(MODEL_PATH):
-        print("❌ File not found.")
-        return
+    # 1. Setup Data
+    if 'GAME_DATE' in df.columns:
+        df['GAME_DATE'] = pd.to_datetime(df['GAME_DATE'])
+        season_df = df[df['GAME_DATE'] >= pd.Timestamp(SEASON_START)].copy()
+    else:
+        season_df = df.copy()
 
-    # 1. Load the "Pickle"
-    model_wrapper = joblib.load(MODEL_PATH)
-    print(f"✅ Type: {type(model_wrapper)}")
+    # 2. Calculate Game Score (The Input)
+    # This formula measures "Single Game Productivity"
+    season_df['GAME_SCORE'] = (
+        season_df['PTS'] + 0.4 * season_df['FGM'] - 0.7 * season_df['FGA'] - 0.4 * (season_df['FTA'] - season_df['FTM']) + 
+        0.7 * season_df['OREB'] + 0.3 * season_df['DREB'] + season_df['STL'] + 0.7 * season_df['AST'] + 
+        0.7 * season_df['BLK'] - 0.4 * season_df['PF'] - season_df['TOV']
+    )
 
-    inner_model = None
+    # 3. Calculate Rolling Form (The Output)
+    # We will do this manually to show the math: New = Old + alpha * (Game - Old)
+    season_df = season_df.sort_values(['PLAYER_ID', 'GAME_DATE'])
+    
+    # Span=10 corresponds to alpha = 2/(10+1) = 0.1818
+    alpha = 2 / (10 + 1)
+    
+    full_history = []
 
-    # 2. Extract the Inner XGBoost Brain (Robust Fix)
-    try:
-        if hasattr(model_wrapper, 'calibrated_classifiers_'):
-            print(f"   📊 Calibration: Enabled (sigmoid method)")
-            print(f"   📂 Internal Models: {len(model_wrapper.calibrated_classifiers_)} folds")
-            
-            # Grab the first fold's model
-            first_fold = model_wrapper.calibrated_classifiers_[0]
-            
-            # TRY BOTH ATTRIBUTE NAMES (Compatibility Fix)
-            if hasattr(first_fold, 'estimator'):
-                inner_model = first_fold.estimator
-            elif hasattr(first_fold, 'base_estimator'):
-                inner_model = first_fold.base_estimator
-            else:
-                print("   ⚠️ Could not find 'estimator' inside calibrated classifier.")
-                return
-        else:
-            inner_model = model_wrapper # It was just raw XGB
-            
-        print("\n⚙️  LEARNED PARAMETERS (Fold 1):")
-        print(f"   n_estimators:     {inner_model.n_estimators}")
-        print(f"   max_depth:        {inner_model.max_depth}")
-        print(f"   learning_rate:    {inner_model.learning_rate}")
-        print(f"   colsample_bytree: {inner_model.colsample_bytree}")
+    print(f"🧮 Tracing history for {len(season_df['PLAYER_ID'].unique())} players...")
+
+    for pid, group in season_df.groupby('PLAYER_ID'):
+        player_name = group['PLAYER_NAME'].iloc[0]
+        team = group['TEAM_ABBREVIATION'].iloc[-1]
         
-    except Exception as e:
-        print(f"⚠️ Critical extraction error: {e}")
-        return
+        # Initialize Form (Start at 0 or first game score)
+        current_form = group['GAME_SCORE'].iloc[0] 
+        
+        for idx, row in group.iterrows():
+            game_score = row['GAME_SCORE']
+            
+            # The EWMA Math Step
+            # New_Form = (Current_Game * Alpha) + (Old_Form * (1 - Alpha))
+            prev_form = current_form
+            current_form = (game_score * alpha) + (prev_form * (1 - alpha))
+            
+            full_history.append({
+                'Date': row['GAME_DATE'].date(),
+                'Player': player_name,
+                'Team': team,
+                'Matchup': row['MATCHUP'],
+                'PTS': row['PTS'],
+                'Game_Score': round(game_score, 1),
+                'Prev_Form': round(prev_form, 1),
+                'New_Form': round(current_form, 1),
+                'Change': round(current_form - prev_form, 2)
+            })
 
-    # 3. Print Feature Importances
-    try:
-        print("\n🧠 FEATURE IMPORTANCE (The Brain):")
-        if hasattr(inner_model, 'feature_importances_'):
-            imps = inner_model.feature_importances_
+    # 4. Save Full Log
+    history_df = pd.DataFrame(full_history)
+    history_df.to_csv(OUTPUT_PATH, index=False)
+    
+    # 5. Print Specific Audit
+    target_df = history_df[history_df['Player'].str.contains(TARGET_PLAYER, case=False)]
+    
+    if target_df.empty:
+        print(f"⚠️ Player '{TARGET_PLAYER}' not found.")
+    else:
+        print("\n" + "="*80)
+        print(f"🔎 DEEP DIVE: {TARGET_PLAYER.upper()}")
+        print("="*80)
+        print(f"{'DATE':<12} | {'MATCHUP':<12} | {'PTS':<4} | {'G_SCORE':<8} | {'PREV':<6} | {'NEW':<6} | {'IMPACT'}")
+        print("-" * 80)
+        
+        # Show last 10 games
+        for i, row in target_df.tail(10).iterrows():
+            impact_symbol = "🟢" if row['Change'] > 0 else "🔻"
+            print(f"{str(row['Date']):<12} | {row['Matchup']:<12} | {row['PTS']:<4} | {row['Game_Score']:<8} | {row['Prev_Form']:<6} | {row['New_Form']:<6} | {impact_symbol} {row['Change']:+.2f}")
             
-            # Combine names with scores
-            data = list(zip(FEATURE_NAMES, imps))
-            # Sort by importance (highest first)
-            data.sort(key=lambda x: x[1], reverse=True)
-            
-            for name, val in data:
-                bar_len = int(val * 40)
-                bar = '█' * bar_len
-                print(f"   {name:<25} | {bar} ({val:.1%})")
-        else:
-            print("   (Feature importances not available in this wrapper)")
-    except Exception as e:
-        print(f"   Could not read importances: {e}")
+        print("-" * 80)
+        print("math key: New_Form = (Game_Score * 0.1818) + (Prev_Form * 0.8182)")
+        
+    print(f"\n✅ Full history saved to {OUTPUT_PATH}")
 
 if __name__ == "__main__":
-    inspect()
+    audit_player_history()
