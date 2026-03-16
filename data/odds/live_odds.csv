@@ -1,7 +1,9 @@
 GAME_DATE,HOME_TEAM,AWAY_TEAM,HOME_ML,AWAY_ML,HOME_SPREAD,HOME_SPREAD_ODDS,AWAY_SPREAD,AWAY_SPREAD_ODDS,BOOKMAKER
-2026-01-06T19:00:00Z,Indiana Pacers,Cleveland Cavaliers,180,-215,5.5,-110,-5.5,-110,FanDuel
-2026-01-06T19:00:00Z,Washington Wizards,Orlando Magic,220,-270,7.0,-110,-7.0,-110,FanDuel
-2026-01-06T20:00:00Z,Memphis Grizzlies,San Antonio Spurs,180,-215,5.5,-110,-5.5,-110,FanDuel
-2026-01-06T20:00:00Z,New Orleans Pelicans,Los Angeles Lakers,168,-200,5.0,-110,-5.0,-110,FanDuel
-2026-01-06T20:00:00Z,Minnesota Timberwolves,Miami Heat,-225,188,-5.5,-110,5.5,-110,FanDuel
-2026-01-06T23:00:00Z,Sacramento Kings,Dallas Mavericks,172,-205,5.5,-110,-5.5,-110,FanDuel
+2026-03-16T23:10:00Z,Atlanta Hawks,Orlando Magic,-142,120,-2.5,-110,2.5,-110,FanDuel
+2026-03-16T23:10:00Z,Washington Wizards,Golden State Warriors,250,-310,7.5,-110,-7.5,-110,DraftKings
+2026-03-16T23:40:00Z,Boston Celtics,Phoenix Suns,-430,340,-9.5,-106,9.5,-114,FanDuel
+2026-03-16T23:40:00Z,Brooklyn Nets,Portland Trail Blazers,340,-440,10.5,-118,-10.5,-102,DraftKings
+2026-03-17T00:10:00Z,Chicago Bulls,Memphis Grizzlies,-240,198,-6.0,-110,6.0,-110,FanDuel
+2026-03-17T00:10:00Z,New Orleans Pelicans,Dallas Mavericks,-330,265,-8.5,-110,8.5,-110,FanDuel
+2026-03-17T01:40:00Z,Houston Rockets,Los Angeles Lakers,-142,120,-2.5,-114,2.5,-106,FanDuel
+2026-03-17T02:10:00Z,Los Angeles Clippers,San Antonio Spurs,320,-405,9.5,-110,-9.5,-110,FanDuel

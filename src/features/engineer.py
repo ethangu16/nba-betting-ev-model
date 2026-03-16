@@ -14,35 +14,46 @@ HOME_ADVANTAGE = 60
 def get_mov_multiplier(mov, elo_diff):
     return ((mov + 3) ** 0.8) / (7.5 + 0.006 * elo_diff)
 
+# Season regression: revert 1/3 of the way back to 1500 between seasons (538 standard)
+ELO_REGRESSION = 1/3
+
 def calculate_elo(df):
     print(f"Calculating Elo on {len(df)} games...")
-    # Calculate Elo ratings for each team using FiveThirtyEight's formula
     all_teams = set(df['TEAM_ABBREVIATION'].unique()) | set(df['OPP_ABBREVIATION'].unique())
     team_elos = {team: 1500 for team in all_teams}
     df = df.sort_values('GAME_DATE').reset_index(drop=True)
     elo_team, elo_opp = [], []
-    
+
+    # Track current season so we can apply regression at each season boundary
+    df['_SEASON'] = df['GAME_DATE'].dt.year.where(df['GAME_DATE'].dt.month >= 10, df['GAME_DATE'].dt.year - 1)
+    prev_season = None
+
     for index, row in df.iterrows():
+        season = row['_SEASON']
+        if prev_season is not None and season != prev_season:
+            # New season — regress all Elo ratings 1/3 toward 1500
+            team_elos = {t: elo + ELO_REGRESSION * (1500 - elo) for t, elo in team_elos.items()}
+        prev_season = season
+
         team, opp = row['TEAM_ABBREVIATION'], row['OPP_ABBREVIATION']
         r_team, r_opp = team_elos.get(team, 1500), team_elos.get(opp, 1500)
         elo_team.append(r_team)
         elo_opp.append(r_opp)
-        
+
         is_home = row['IS_HOME']
         home_boost = HOME_ADVANTAGE if is_home == 1 else 0
         dr = r_team + home_boost - r_opp
         prob_win = 1 / (1 + 10 ** (-dr / 400))
         actual_win = 1 if row['WL'] == 'W' else 0
         mov = abs(row['PLUS_MINUS']) if not pd.isna(row['PLUS_MINUS']) else 0
-        
-        if actual_win: elo_diff_winner = dr
-        else: elo_diff_winner = -dr
-            
+
+        elo_diff_winner = dr if actual_win else -dr
         shift = K_FACTOR * get_mov_multiplier(mov, elo_diff_winner) * (actual_win - prob_win)
         team_elos[team] += shift
         team_elos[opp] -= shift
 
     df['ELO_TEAM'], df['ELO_OPP'] = elo_team, elo_opp
+    df.drop(columns=['_SEASON'], inplace=True)
     return df
 
 def calculate_advanced_stats(df):
@@ -164,9 +175,9 @@ def create_rolling_features(df):
     for col in metrics:
         if col not in df.columns: continue
         
-        # 1. Stability Feature (SMA-20) - Long term "Class"
+        # 1. Stability Feature (SMA-20) - Long term "Class" (window=20, not 10)
         df[f'SMA_20_{col}'] = df.groupby('TEAM_ABBREVIATION')[col].transform(
-            lambda x: x.shift(1).rolling(10, min_periods=5).mean()
+            lambda x: x.shift(1).rolling(20, min_periods=8).mean()
         )
         
         # 2. Form Feature (EWMA-10) - Recent "Momentum"
@@ -205,7 +216,32 @@ def main():
     df = calculate_elo(df)
     df = calculate_roster_strength_gamescore(df)
     df = create_rolling_features(df)
-    
+
+    # --- Add opponent differential features ---
+    # Merge in the opponent's rolling stats so the model sees matchup quality directly
+    opp_cols = ['TEAM_ABBREVIATION', 'GAME_ID',
+                'EWMA_10_OFF_RTG', 'EWMA_10_DEF_RTG', 'EWMA_10_PACE',
+                'EWMA_10_EFG_PCT', 'EWMA_10_TOV_PCT', 'EWMA_10_ORB_PCT',
+                'EWMA_10_FTR', 'EWMA_10_ROSTER_TALENT_SCORE',
+                'EWMA_5_OFF_RTG', 'EWMA_5_DEF_RTG',
+                'SMA_20_OFF_RTG', 'SMA_20_DEF_RTG']
+    available_opp_cols = [c for c in opp_cols if c in df.columns]
+    df_opp = df[available_opp_cols].copy()
+    rename_map = {c: f'OPP_{c}' for c in available_opp_cols if c not in ['TEAM_ABBREVIATION', 'GAME_ID']}
+    df_opp = df_opp.rename(columns={'TEAM_ABBREVIATION': 'OPP_ABBREVIATION', **rename_map})
+    df = df.merge(df_opp, on=['GAME_ID', 'OPP_ABBREVIATION'], how='left')
+
+    # Differential features (team minus opponent)
+    diff_pairs = [
+        ('EWMA_10_OFF_RTG', 'OPP_EWMA_10_DEF_RTG', 'DIFF_OFF_VS_OPP_DEF'),
+        ('EWMA_10_DEF_RTG', 'OPP_EWMA_10_OFF_RTG', 'DIFF_DEF_VS_OPP_OFF'),
+        ('ELO_TEAM', 'ELO_OPP', 'ELO_DIFF'),
+        ('EWMA_10_ROSTER_TALENT_SCORE', 'OPP_EWMA_10_ROSTER_TALENT_SCORE', 'DIFF_ROSTER'),
+    ]
+    for col_a, col_b, new_col in diff_pairs:
+        if col_a in df.columns and col_b in df.columns:
+            df[new_col] = df[col_a] - df[col_b]
+
     # Drop rows where we don't have enough history for the primary momentum feature
     df_clean = df.dropna(subset=['EWMA_10_OFF_RTG', 'ELO_TEAM'])
     

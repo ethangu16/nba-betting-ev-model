@@ -21,6 +21,10 @@ plotly==5.18.0
 tqdm==4.66.1
 python-dotenv==1.0.0
 
+# Web Dashboard
+flask>=3.0.0
+openai>=1.0.0
+
 # Jupyter
 jupyter==1.0.0
 ipykernel==6.27.1

@@ -15,17 +15,27 @@ ODDS_PATH = 'data/odds/live_odds.csv'
 PLAYER_PATH = 'data/raw/nba_player_stats.csv'
 INJURY_PATH = 'data/raw/espn_injuries_current.csv'   
 OUTPUT_PATH = 'results/todays_bets.csv'
+DETAILED_JSON_PATH = 'results/todays_bets_detailed.json'
 
-# 🟢 FEATURE LIST
+# 🟢 FEATURE LIST — must stay in sync with train_model.py
 REQUIRED_FEATURES = [
     'ELO_TEAM', 'ELO_OPP', 'IS_HOME', 'IS_B2B', 'IS_3IN4',
     'ROSTER_TALENT_SCORE',
+    # Differential features
+    'ELO_DIFF', 'DIFF_OFF_VS_OPP_DEF', 'DIFF_DEF_VS_OPP_OFF', 'DIFF_ROSTER',
+    # SMA 20
     'SMA_20_OFF_RTG', 'SMA_20_DEF_RTG', 'SMA_20_PACE', 'SMA_20_EFG_PCT',
     'SMA_20_TOV_PCT', 'SMA_20_ORB_PCT', 'SMA_20_FTR', 'SMA_20_ROSTER_TALENT_SCORE',
+    # EWMA 10
     'EWMA_10_OFF_RTG', 'EWMA_10_DEF_RTG', 'EWMA_10_PACE', 'EWMA_10_EFG_PCT',
     'EWMA_10_TOV_PCT', 'EWMA_10_ORB_PCT', 'EWMA_10_FTR', 'EWMA_10_ROSTER_TALENT_SCORE',
+    # EWMA 5
     'EWMA_5_OFF_RTG', 'EWMA_5_DEF_RTG', 'EWMA_5_PACE', 'EWMA_5_EFG_PCT',
     'EWMA_5_TOV_PCT', 'EWMA_5_ORB_PCT', 'EWMA_5_FTR', 'EWMA_5_ROSTER_TALENT_SCORE',
+    # Opponent rolling form
+    'OPP_EWMA_10_OFF_RTG', 'OPP_EWMA_10_DEF_RTG', 'OPP_EWMA_10_ROSTER_TALENT_SCORE',
+    'OPP_EWMA_5_OFF_RTG', 'OPP_EWMA_5_DEF_RTG',
+    'OPP_SMA_20_OFF_RTG', 'OPP_SMA_20_DEF_RTG',
 ]
 
 # Betting Parameters
@@ -294,16 +304,33 @@ def predict():
             'IS_B2B': h_hist['IS_B2B'],
             'IS_3IN4': h_hist['IS_3IN4'],
             'ROSTER_TALENT_SCORE': h_strength,
+            # Differential features
+            'ELO_DIFF': h_elo_adj - a_elo_adj,
+            'DIFF_OFF_VS_OPP_DEF': h_hist.get('EWMA_10_OFF_RTG', 0) - a_hist.get('EWMA_10_DEF_RTG', 0),
+            'DIFF_DEF_VS_OPP_OFF': h_hist.get('EWMA_10_DEF_RTG', 0) - a_hist.get('EWMA_10_OFF_RTG', 0),
+            'DIFF_ROSTER': h_strength - a_strength,
         }
-        
+
         rolling_metrics = ['OFF_RTG', 'DEF_RTG', 'PACE', 'EFG_PCT', 'TOV_PCT', 'ORB_PCT', 'FTR', 'ROSTER_TALENT_SCORE']
-        for m in rolling_metrics: 
+        for m in rolling_metrics:
             input_row[f'SMA_20_{m}'] = h_hist.get(f'SMA_20_{m}', 0)
             input_row[f'EWMA_10_{m}'] = h_hist.get(f'EWMA_10_{m}', 0)
             input_row[f'EWMA_5_{m}'] = h_hist.get(f'EWMA_5_{m}', 0)
 
+        # Opponent rolling features
+        input_row['OPP_EWMA_10_OFF_RTG']  = a_hist.get('EWMA_10_OFF_RTG', 0)
+        input_row['OPP_EWMA_10_DEF_RTG']  = a_hist.get('EWMA_10_DEF_RTG', 0)
+        input_row['OPP_EWMA_10_ROSTER_TALENT_SCORE'] = a_hist.get('EWMA_10_ROSTER_TALENT_SCORE', 0)
+        input_row['OPP_EWMA_5_OFF_RTG']   = a_hist.get('EWMA_5_OFF_RTG', 0)
+        input_row['OPP_EWMA_5_DEF_RTG']   = a_hist.get('EWMA_5_DEF_RTG', 0)
+        input_row['OPP_SMA_20_OFF_RTG']   = a_hist.get('SMA_20_OFF_RTG', 0)
+        input_row['OPP_SMA_20_DEF_RTG']   = a_hist.get('SMA_20_DEF_RTG', 0)
+
         try:
-            feature_df = pd.DataFrame([input_row])[REQUIRED_FEATURES]
+            # Use only features the saved model was actually trained on
+            model_features = model.feature_names_in_ if hasattr(model, 'feature_names_in_') else REQUIRED_FEATURES
+            available = [f for f in model_features if f in input_row]
+            feature_df = pd.DataFrame([input_row])[available]
         except KeyError as e:
             print(f"❌ Feature Error: {e}")
             continue
@@ -349,17 +376,62 @@ def predict():
         
         predictions.append({
             'Game': f"{home} vs {away}",
+            'Home': home,
+            'Away': away,
             'Model_Pick': winner,
             'Win_Prob': f"{conf:.1%}",
+            'Win_Prob_Raw': round(float(conf), 4),
             'Vegas_Odds': vegas_odds,
             'Edge': f"{max(h_edge, a_edge):+.1%}",
+            'Edge_Raw': round(float(max(h_edge, a_edge)), 4),
             'Action': rec,
-            'Pot_Profit': pot_profit
+            'Pot_Profit': pot_profit,
+            'Home_ELO': round(float(h_elo_adj), 1),
+            'Away_ELO': round(float(a_elo_adj), 1),
+            'Home_ELO_Raw': round(float(h_hist['ELO_TEAM']), 1),
+            'Away_ELO_Raw': round(float(a_hist['ELO_TEAM']), 1),
+            'Home_Roster_Strength': round(float(h_strength), 1),
+            'Away_Roster_Strength': round(float(a_strength), 1),
+            'Home_Roster_Max': round(float(h_theoretical), 1),
+            'Away_Roster_Max': round(float(a_theoretical), 1),
+            'Home_Injuries': h_out,
+            'Away_Injuries': a_out,
+            'Home_IS_B2B': int(h_hist['IS_B2B']),
+            'Away_IS_B2B': int(a_hist['IS_B2B']),
+            'Home_IS_3IN4': int(h_hist['IS_3IN4']),
+            'Away_IS_3IN4': int(a_hist['IS_3IN4']),
+            'Home_OFF_RTG': round(float(h_hist.get('EWMA_10_OFF_RTG', 0)), 1),
+            'Away_OFF_RTG': round(float(a_hist.get('EWMA_10_OFF_RTG', 0)), 1),
+            'Home_DEF_RTG': round(float(h_hist.get('EWMA_10_DEF_RTG', 0)), 1),
+            'Away_DEF_RTG': round(float(a_hist.get('EWMA_10_DEF_RTG', 0)), 1),
+            'Home_PACE': round(float(h_hist.get('EWMA_10_PACE', 0)), 1),
+            'Away_PACE': round(float(a_hist.get('EWMA_10_PACE', 0)), 1),
+            'Home_EFG_PCT': round(float(h_hist.get('EWMA_10_EFG_PCT', 0)), 3),
+            'Away_EFG_PCT': round(float(a_hist.get('EWMA_10_EFG_PCT', 0)), 3),
+            'Home_ML': int(row['HOME_ML']) if not pd.isna(row['HOME_ML']) else None,
+            'Away_ML': int(row['AWAY_ML']) if not pd.isna(row['AWAY_ML']) else None,
+            'Home_Spread': float(row['HOME_SPREAD']) if 'HOME_SPREAD' in row and not pd.isna(row['HOME_SPREAD']) else None,
+            'Away_Spread': float(row['AWAY_SPREAD']) if 'AWAY_SPREAD' in row and not pd.isna(row['AWAY_SPREAD']) else None,
+            'Home_Spread_Odds': int(row['HOME_SPREAD_ODDS']) if 'HOME_SPREAD_ODDS' in row and not pd.isna(row['HOME_SPREAD_ODDS']) else None,
+            'Away_Spread_Odds': int(row['AWAY_SPREAD_ODDS']) if 'AWAY_SPREAD_ODDS' in row and not pd.isna(row['AWAY_SPREAD_ODDS']) else None,
+            'Bookmaker': str(row['BOOKMAKER']) if 'BOOKMAKER' in row and not pd.isna(row['BOOKMAKER']) else None,
+            'Game_Time': str(row['GAME_DATE']) if 'GAME_DATE' in row and not pd.isna(row['GAME_DATE']) else None,
         })
 
     if predictions:
-        res_df = pd.DataFrame(predictions)
+        # Save CSV (keep only original columns for backwards compat)
+        csv_cols = ['Game', 'Model_Pick', 'Win_Prob', 'Vegas_Odds', 'Edge', 'Action', 'Pot_Profit']
+        res_df = pd.DataFrame(predictions)[csv_cols]
         res_df.to_csv(OUTPUT_PATH, index=False)
+
+        # Save detailed JSON for frontend
+        import json
+        with open(DETAILED_JSON_PATH, 'w') as f:
+            json.dump({
+                'date': datetime.now().strftime('%Y-%m-%d'),
+                'generated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                'predictions': predictions
+            }, f, indent=2, default=str)
         
         print("\n" + "="*95)
         print(f"📋  BETTING CARD FOR {datetime.now().date()}")

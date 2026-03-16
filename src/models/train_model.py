@@ -24,13 +24,15 @@ def train():
     features = [
         # Core Context
         'ELO_TEAM', 'ELO_OPP', 'IS_HOME', 'IS_B2B', 'IS_3IN4',
-        'ROSTER_TALENT_SCORE', # Use the raw score, or a rolling version if you made one
-        
-        # 🟢 NEW: The 3 Time Windows for Every Stat
-        # SMA 20 (Stability)
+        'ROSTER_TALENT_SCORE',
+
+        # Differential features (most predictive — team vs opponent matchup)
+        'ELO_DIFF', 'DIFF_OFF_VS_OPP_DEF', 'DIFF_DEF_VS_OPP_OFF', 'DIFF_ROSTER',
+
+        # SMA 20 (Stability / Long-term class)
         'SMA_20_OFF_RTG', 'SMA_20_DEF_RTG', 'SMA_20_PACE', 'SMA_20_EFG_PCT',
         'SMA_20_TOV_PCT', 'SMA_20_ORB_PCT', 'SMA_20_FTR', 'SMA_20_ROSTER_TALENT_SCORE',
-        
+
         # EWMA 10 (Momentum)
         'EWMA_10_OFF_RTG', 'EWMA_10_DEF_RTG', 'EWMA_10_PACE', 'EWMA_10_EFG_PCT',
         'EWMA_10_TOV_PCT', 'EWMA_10_ORB_PCT', 'EWMA_10_FTR', 'EWMA_10_ROSTER_TALENT_SCORE',
@@ -38,7 +40,16 @@ def train():
         # EWMA 5 (Hot/Cold Streaks)
         'EWMA_5_OFF_RTG', 'EWMA_5_DEF_RTG', 'EWMA_5_PACE', 'EWMA_5_EFG_PCT',
         'EWMA_5_TOV_PCT', 'EWMA_5_ORB_PCT', 'EWMA_5_FTR', 'EWMA_5_ROSTER_TALENT_SCORE',
+
+        # Opponent rolling form (does their recent defence match our recent offence?)
+        'OPP_EWMA_10_OFF_RTG', 'OPP_EWMA_10_DEF_RTG',
+        'OPP_EWMA_10_ROSTER_TALENT_SCORE',
+        'OPP_EWMA_5_OFF_RTG', 'OPP_EWMA_5_DEF_RTG',
+        'OPP_SMA_20_OFF_RTG', 'OPP_SMA_20_DEF_RTG',
     ]
+
+    # Only keep features that actually exist in the data (graceful degradation)
+    features = [f for f in features if f in df.columns]
     
     target = 'TARGET_WIN'
 
@@ -59,18 +70,26 @@ def train():
     
     # --- 3. SPLIT DATA (TIME SERIES SPLIT) ---
     split_idx = int(len(df) * 0.8)
-    
-    X_train = X.iloc[:split_idx]
-    y_train = y.iloc[:split_idx]
-    train_dates = df['GAME_DATE'].iloc[:split_idx]
-    
+
+    # Reserve last 10% of training data as a held-out calibration set
+    # Train: 0-70%  |  Calibrate: 70-80%  |  Test: 80-100%
+    calib_split = int(len(df) * 0.7)
+
+    X_train = X.iloc[:calib_split]
+    y_train = y.iloc[:calib_split]
+    train_dates = df['GAME_DATE'].iloc[:calib_split]
+
+    X_calib = X.iloc[calib_split:split_idx]
+    y_calib = y.iloc[calib_split:split_idx]
+
     X_test = X.iloc[split_idx:]
     y_test = y.iloc[split_idx:]
     test_dates = df['GAME_DATE'].iloc[split_idx:]
-    
+
     print("\n✂️  SPLIT AUDIT:")
-    print(f"   Train: {len(X_train)} games | End Date: {train_dates.max().date()}")
-    print(f"   Test:  {len(X_test)} games | Start Date: {test_dates.min().date()}")
+    print(f"   Train:    {len(X_train)} games | End Date: {train_dates.max().date()}")
+    print(f"   Calibrate:{len(X_calib)} games")
+    print(f"   Test:     {len(X_test)} games | Start Date: {test_dates.min().date()}")
 
     # --- GRID SEARCH ---
     print("\n🔍 STARTING GRID SEARCH...")
@@ -81,15 +100,15 @@ def train():
         'subsample': [0.8],
         'colsample_bytree': [0.8]
     }
-    
+
     xgb_base = xgb.XGBClassifier(objective='binary:logistic', eval_metric='logloss')
     tscv = TimeSeriesSplit(n_splits=3)
-    
+
     grid_search = GridSearchCV(
         estimator=xgb_base,
         param_grid=param_grid,
         cv=tscv,
-        scoring='accuracy',
+        scoring='neg_log_loss',  # Optimise for calibrated probabilities, not raw accuracy
         n_jobs=-1,
         verbose=1
     )
@@ -111,10 +130,10 @@ def train():
         bar = '█' * bar_len
         print(f"   {row['Feature']:<25} | {bar} ({row['Importance']:.1%})")
 
-    # --- CALIBRATION ---
+    # --- CALIBRATION (on held-out calibration set to avoid leakage) ---
     print("\n🔧 Calibrating Probabilities...")
-    calibrated_model = CalibratedClassifierCV(best_xgb, method='sigmoid', cv=5)
-    calibrated_model.fit(X_train, y_train)
+    calibrated_model = CalibratedClassifierCV(best_xgb, method='isotonic', cv='prefit')
+    calibrated_model.fit(X_calib, y_calib)
 
     # --- EVALUATION ---
     print("\n🎯 FINAL EVALUATION (Test Set):")
