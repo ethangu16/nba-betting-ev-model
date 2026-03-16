@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NBA Betting EV Model</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: { 400: '#22c55e', 500: '#16a34a', 600: '#15803d' },
+            surface: { 900: '#0a0f1a', 800: '#111827', 700: '#1a2235', 600: '#1e2a3f' }
+          },
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] }
+        }
+      }
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    body { background-color: #0a0f1a; }
+    .card { background: #111827; border: 1px solid #1e2a3f; }
+    .bet-glow { box-shadow: 0 0 20px rgba(34,197,94,0.25); border-color: #22c55e !important; }
+    .no-bet-dim { opacity: 0.7; }
+    .prob-bar { height: 6px; border-radius: 3px; background: #1e2a3f; overflow: hidden; }
+    .prob-fill { height: 100%; border-radius: 3px; transition: width 0.8s ease; }
+    .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; font-size: 0.8rem; }
+    .stat-label { color: #6b7280; }
+    .badge { padding: 2px 8px; border-radius: 99px; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.05em; }
+    .spinner { border: 3px solid #1e2a3f; border-top-color: #22c55e; border-radius: 50%; width: 20px; height: 20px; animation: spin 0.8s linear infinite; display: inline-block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #log-panel { max-height: 0; overflow: hidden; transition: max-height 0.4s ease; }
+    #log-panel.open { max-height: 600px; }
+    #ai-modal { display: none; }
+    #ai-modal.active { display: flex; }
+    .team-stat-bar { height: 4px; border-radius: 2px; }
+    .pulse { animation: pulse 2s cubic-bezier(0.4,0,0.6,1) infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+    .vs-divider { position: relative; }
+    .vs-divider::before { content: ''; position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: #1e2a3f; }
+    .scrollbar-thin::-webkit-scrollbar { width: 5px; }
+    .scrollbar-thin::-webkit-scrollbar-track { background: #111827; }
+    .scrollbar-thin::-webkit-scrollbar-thumb { background: #374151; border-radius: 9999px; }
+    .filter-btn { padding: 3px 12px; border-radius: 8px; font-size: 0.73rem; font-weight: 600; transition: all 0.15s; cursor: pointer; border: none; }
+    .filter-btn.active { background: #22c55e; color: #000; }
+    .filter-btn:not(.active) { background: #1e2a3f; color: #9ca3af; }
+    .filter-btn:not(.active):hover { background: #2d3a52; color: #d1d5db; }
+    .inj-pill { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 99px; font-size: 0.68rem; font-weight: 500; }
+    .spread-chip { font-size: 0.7rem; background: #1e2a3f; border-radius: 6px; padding: 2px 6px; color: #9ca3af; font-weight: 500; white-space: nowrap; }
+    .card-enter { animation: cardIn 0.3s ease both; }
+    @keyframes cardIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+  </style>
+</head>
+
+<body class="text-gray-200 font-sans min-h-screen">
+
+  <!-- ═══════════════════ HEADER ═══════════════════ -->
+  <header class="sticky top-0 z-40 border-b border-gray-800" style="background: rgba(10,15,26,0.95); backdrop-filter: blur(8px);">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <span class="text-2xl">🏀</span>
+        <div>
+          <h1 class="text-lg font-bold text-white leading-none">NBA Betting EV Model</h1>
+          <p class="text-xs text-gray-500" id="header-date">Loading…</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="btn-predict" onclick="runPipeline('predict')"
+          class="px-4 py-1.5 rounded-lg text-sm font-semibold bg-brand-500 hover:bg-brand-600 text-white transition-all flex items-center gap-2">
+          <span>⚡ Predict</span>
+        </button>
+        <button id="btn-full" onclick="runPipeline('full')"
+          class="px-4 py-1.5 rounded-lg text-sm font-semibold bg-gray-700 hover:bg-gray-600 text-white transition-all flex items-center gap-2">
+          <span>🔄 Full Pipeline</span>
+        </button>
+        <button onclick="toggleLog()"
+          class="px-3 py-1.5 rounded-lg text-sm text-gray-400 hover:text-white bg-gray-800 hover:bg-gray-700 transition-all">
+          📋 Log
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 py-6 space-y-6">
+
+    <!-- ═══════════════════ PIPELINE LOG ═══════════════════ -->
+    <div id="log-panel" class="card rounded-xl overflow-hidden">
+      <div class="p-3 border-b border-gray-800 flex items-center justify-between">
+        <span class="text-sm font-semibold text-gray-300 flex items-center gap-2">
+          <span id="log-status-icon">📋</span> Pipeline Log
+        </span>
+        <span id="log-status-text" class="text-xs text-gray-500">Idle</span>
+      </div>
+      <div id="log-output"
+        class="p-3 font-mono text-xs text-green-400 bg-gray-950 max-h-64 overflow-y-auto scrollbar-thin leading-relaxed whitespace-pre-wrap">
+        Ready. Click ⚡ Predict or 🔄 Full Pipeline to start.
+      </div>
+    </div>
+
+    <!-- ═══════════════════ STATS BAR ═══════════════════ -->
+    <div id="stats-bar" class="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <div class="card rounded-xl p-4 text-center">
+        <div id="stat-roi" class="text-2xl font-extrabold text-brand-400">—</div>
+        <div class="text-xs text-gray-500 mt-1">All-Time ROI</div>
+      </div>
+      <div class="card rounded-xl p-4 text-center">
+        <div id="stat-winrate" class="text-2xl font-extrabold text-white">—</div>
+        <div class="text-xs text-gray-500 mt-1">Win Rate</div>
+      </div>
+      <div class="card rounded-xl p-4 text-center">
+        <div id="stat-bets" class="text-2xl font-extrabold text-white">—</div>
+        <div class="text-xs text-gray-500 mt-1">Total Bets</div>
+      </div>
+      <div class="card rounded-xl p-4 text-center">
+        <div id="stat-today" class="text-2xl font-extrabold text-yellow-400">—</div>
+        <div class="text-xs text-gray-500 mt-1">Bets Today</div>
+      </div>
+      <div class="card rounded-xl p-4 text-center col-span-2 md:col-span-1">
+        <div id="stat-stake" class="text-2xl font-extrabold text-blue-400">—</div>
+        <div class="text-xs text-gray-500 mt-1">Stake → <span id="stat-profit" class="text-green-400 font-bold"></span></div>
+      </div>
+    </div>
+
+    <!-- ═══════════════════ TODAY'S PICKS ═══════════════════ -->
+    <section>
+      <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+        <div class="flex items-center gap-3">
+          <h2 class="text-base font-bold text-white">Today's Picks</h2>
+          <div class="flex gap-1">
+            <button class="filter-btn active" id="filter-all" onclick="setFilter('all')">All</button>
+            <button class="filter-btn" id="filter-bets" onclick="setFilter('bets')">Bets Only</button>
+          </div>
+        </div>
+        <span id="picks-date" class="text-xs text-gray-500"></span>
+      </div>
+      <div id="picks-container" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        <!-- Cards injected by JS -->
+        <div class="card rounded-xl p-6 text-center text-gray-500 col-span-full text-sm" id="no-picks-msg">
+          No predictions loaded. Click <strong class="text-brand-400">⚡ Predict</strong> to generate today's picks.
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════ BANKROLL CHART ═══════════════════ -->
+    <section>
+      <h2 class="text-base font-bold text-white mb-3">Backtest — Bankroll Growth</h2>
+      <div class="card rounded-xl p-4">
+        <canvas id="bankroll-chart" height="100"></canvas>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ═══════════════════ AI ANALYSIS MODAL ═══════════════════ -->
+  <div id="ai-modal" class="fixed inset-0 z-50 items-center justify-center p-4"
+    style="background: rgba(0,0,0,0.75); backdrop-filter: blur(6px);">
+    <div class="card rounded-2xl w-full max-w-xl max-h-[85vh] overflow-hidden flex flex-col">
+
+      <!-- Header -->
+      <div class="flex items-start justify-between px-5 pt-5 pb-4 border-b border-gray-800 gap-3">
+        <div>
+          <h3 id="modal-title" class="text-base font-bold text-white"></h3>
+          <p class="text-xs text-gray-500 mt-0.5">AI-Generated Edge Analysis</p>
+        </div>
+        <button onclick="closeModal()" class="text-gray-500 hover:text-white transition-colors text-xl leading-none shrink-0">✕</button>
+      </div>
+
+      <!-- Summary badges -->
+      <div id="modal-summary" class="px-5 py-3 border-b border-gray-800 flex flex-wrap gap-2 text-xs"></div>
+
+      <!-- Two-column stat comparison -->
+      <div id="modal-comparison" class="px-5 py-3 border-b border-gray-800 hidden">
+        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Key Stats</p>
+        <div id="modal-comp-grid" class="grid grid-cols-2 gap-x-4 text-xs"></div>
+      </div>
+
+      <!-- Injury pills -->
+      <div id="modal-injuries" class="px-5 py-3 border-b border-gray-800 hidden">
+        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">⚤ Injury Report</p>
+        <div id="modal-inj-content" class="flex flex-wrap gap-1.5"></div>
+      </div>
+
+      <!-- Analysis text -->
+      <div id="modal-analysis" class="p-5 overflow-y-auto scrollbar-thin text-sm text-gray-300 leading-relaxed flex-1">
+        <div class="flex items-center gap-3 text-gray-500">
+          <div class="spinner"></div>
+          <span>Generating analysis…</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <script>
+    // ─── State ───────────────────────────────────────────────────────────────
+    let predictionsData = [];
+    let bankrollChart = null;
+    let logOpen = false;
+    let activeFilter = 'all';
+
+    // ─── Helpers ─────────────────────────────────────────────────────────────
+    function fmtML(ml) { if (ml == null) return '—'; return ml > 0 ? '+' + ml : '' + ml; }
+    function fmtSpread(sp, odds) {
+      if (sp == null) return null;
+      const o = odds != null ? ' (' + fmtML(odds) + ')' : '';
+      return (sp > 0 ? '+' + sp : '' + sp) + o;
+    }
+    function fmtGameTime(isoStr) {
+      if (!isoStr) return null;
+      try { return new Date(isoStr).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' }); }
+      catch(e) { return null; }
+    }
+    function isBetAction(action) { return !!(action && action.startsWith('BET') && !action.includes('NO')); }
+    function mlToImplied(ml) {
+      if (ml == null || ml === '-' || ml === '') return null;
+      const n = parseFloat(ml);
+      if (isNaN(n)) return null;
+      return n > 0 ? 100 / (n + 100) : Math.abs(n) / (Math.abs(n) + 100);
+    }
+
+    // ─── On load ─────────────────────────────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('header-date').textContent = new Date().toLocaleDateString('en-US', {
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+      });
+      loadPredictions();
+      loadBacktest();
+    });
+
+    // ─── Toggle log ──────────────────────────────────────────────────────────
+    function toggleLog() {
+      const panel = document.getElementById('log-panel');
+      logOpen = !logOpen;
+      panel.classList.toggle('open', logOpen);
+    }
+
+    function openLog() {
+      const panel = document.getElementById('log-panel');
+      logOpen = true;
+      panel.classList.add('open');
+    }
+
+    // ─── Filter ──────────────────────────────────────────
+    function setFilter(f) {
+      activeFilter = f;
+      document.getElementById('filter-all').classList.toggle('active', f === 'all');
+      document.getElementById('filter-bets').classList.toggle('active', f === 'bets');
+      renderPicks(predictionsData);
+    }
+
+    // ─── Run Pipeline ─────────────────────────────────────────────────────────
+    function runPipeline(mode) {
+      openLog();
+      const log = document.getElementById('log-output');
+      const statusText = document.getElementById('log-status-text');
+      const statusIcon = document.getElementById('log-status-icon');
+      const btnPredict = document.getElementById('btn-predict');
+      const btnFull = document.getElementById('btn-full');
+
+      log.textContent = '';
+      statusText.textContent = 'Running…';
+      statusIcon.textContent = '⏳';
+      btnPredict.disabled = true;
+      btnFull.disabled = true;
+      btnPredict.classList.add('opacity-50');
+      btnFull.classList.add('opacity-50');
+
+      const evtSource = new EventSource(`/api/run-pipeline?mode=${mode}`);
+
+      evtSource.onmessage = (e) => {
+        if (e.data === '__DONE__') {
+          evtSource.close();
+          statusText.textContent = 'Done';
+          statusIcon.textContent = '✅';
+          btnPredict.disabled = false;
+          btnFull.disabled = false;
+          btnPredict.classList.remove('opacity-50');
+          btnFull.classList.remove('opacity-50');
+          // Reload predictions after pipeline finishes
+          setTimeout(() => loadPredictions(), 500);
+          return;
+        }
+        log.textContent += e.data + '\n';
+        log.scrollTop = log.scrollHeight;
+      };
+
+      evtSource.onerror = () => {
+        evtSource.close();
+        log.textContent += '\n[Connection closed]\n';
+        statusText.textContent = 'Error';
+        statusIcon.textContent = '❌';
+        btnPredict.disabled = false;
+        btnFull.disabled = false;
+        btnPredict.classList.remove('opacity-50');
+        btnFull.classList.remove('opacity-50');
+      };
+    }
+
+    // ─── Load Predictions ────────────────────────────────────────────────────
+    async function loadPredictions() {
+      try {
+        const res = await fetch('/api/predictions');
+        const data = await res.json();
+        predictionsData = data.predictions || [];
+
+        document.getElementById('no-picks-msg')?.remove();
+
+        if (!predictionsData.length) {
+          document.getElementById('picks-date').textContent = '';
+          renderNoPicks();
+          updateDailySummary([]);
+          return;
+        }
+
+        document.getElementById('picks-date').textContent = data.generated_at
+          ? `Generated: ${data.generated_at}` : '';
+
+        // Sort: bets first, then by edge descending
+        predictionsData.sort((a, b) => {
+          const ab = isBetAction(a.Action) ? 1 : 0;
+          const bb = isBetAction(b.Action) ? 1 : 0;
+          if (ab !== bb) return bb - ab;
+          return (b.Edge_Raw || 0) - (a.Edge_Raw || 0);
+        });
+
+        renderPicks(predictionsData);
+        updateDailySummary(predictionsData);
+
+        const betsToday = predictionsData.filter(p => isBetAction(p.Action));
+        document.getElementById('stat-today').textContent = betsToday.length;
+      } catch (e) {
+        console.error('Failed to load predictions', e);
+      }
+    }
+
+    function updateDailySummary(preds) {
+      const bets = preds.filter(p => isBetAction(p.Action));
+      let totalStake = 0, totalProfit = 0;
+      bets.forEach(p => {
+        const m = p.Action?.match(/\$([0-9.]+)/);
+        if (m) totalStake += parseFloat(m[1]);
+        const pm = p.Pot_Profit?.match(/\$([0-9.]+)/);
+        if (pm) totalProfit += parseFloat(pm[1]);
+      });
+      document.getElementById('stat-stake').textContent = totalStake > 0 ? `$${totalStake.toFixed(0)}` : '—';
+      document.getElementById('stat-profit').textContent = totalProfit > 0 ? `+$${totalProfit.toFixed(0)}` : '';
+    }
+
+    function renderNoPicks() {
+      document.getElementById('picks-container').innerHTML =
+        `<div class="card rounded-xl p-6 text-center text-gray-500 col-span-full text-sm" id="no-picks-msg">
+          No predictions loaded. Click <strong class="text-brand-400">⚡ Predict</strong> to generate today's picks.
+        </div>`;
+    }
+
+    function renderPicks(predictions) {
+      const container = document.getElementById('picks-container');
+      container.innerHTML = '';
+      const filtered = activeFilter === 'bets'
+        ? predictions.filter(p => isBetAction(p.Action))
+        : predictions;
+      if (!filtered.length) {
+        container.innerHTML = `<div class="card rounded-xl p-6 text-center text-gray-500 col-span-full text-sm">No bets today matching the filter.</div>`;
+        return;
+      }
+      filtered.forEach((game, idx) => renderGameCard(game, idx, container));
+    }
+
+    function renderGameCard(g, idx, container) {
+      const isBet = g.Action && g.Action.startsWith('BET') && !g.Action.includes('NO');
+      const winPct = g.Win_Prob_Raw || 0;
+      const pick = g.Model_Pick;
+      const home = g.Home || g.Game?.split(' vs ')[0] || '?';
+      const away = g.Away || g.Game?.split(' vs ')[1] || '?';
+      const edge = g.Edge || '';
+      const edgeNum = g.Edge_Raw || 0;
+
+      // Pick-relative edge factors
+      const pickIsHome = pick === home;
+      const pickELO  = pickIsHome ? g.Home_ELO_Raw  : g.Away_ELO_Raw;
+      const oppELO   = pickIsHome ? g.Away_ELO_Raw  : g.Home_ELO_Raw;
+      const eloDiff  = (pickELO != null && oppELO != null) ? pickELO - oppELO : null;
+      const pickRoster = pickIsHome ? g.Home_Roster_Strength : g.Away_Roster_Strength;
+      const oppRoster  = pickIsHome ? g.Away_Roster_Strength : g.Home_Roster_Strength;
+      const rosterDiff = (pickRoster != null && oppRoster != null) ? pickRoster - oppRoster : null;
+      const pickOFF  = pickIsHome ? g.Home_OFF_RTG  : g.Away_OFF_RTG;
+      const oppDEF   = pickIsHome ? g.Away_DEF_RTG  : g.Home_DEF_RTG;
+      const offVsDef = (pickOFF != null && oppDEF != null) ? pickOFF - oppDEF : null;
+      const oppB2B   = pickIsHome ? g.Away_IS_B2B   : g.Home_IS_B2B;
+      const oppFatigue = pickIsHome ? g.Away_IS_3IN4 : g.Home_IS_3IN4;
+      const pickML   = pickIsHome ? g.Home_ML : g.Away_ML;
+      const vegasImpl = mlToImplied(pickML);
+
+      // Colours
+      const probColour = winPct >= 0.70 ? '#22c55e' : winPct >= 0.55 ? '#eab308' : '#f97316';
+      const edgeColour = edgeNum >= 0.08 ? '#22c55e' : edgeNum >= 0.03 ? '#eab308' : '#6b7280';
+      const cardExtra = isBet ? 'bet-glow' : 'no-bet-dim';
+
+      // Roster health
+      const hHealth = g.Home_Roster_Max ? Math.round(g.Home_Roster_Strength / g.Home_Roster_Max * 100) : 100;
+      const aHealth = g.Away_Roster_Max ? Math.round(g.Away_Roster_Strength / g.Away_Roster_Max * 100) : 100;
+
+      // Game time + bookmaker
+      const gameTime = fmtGameTime(g.Game_Time);
+      const hSpread = fmtSpread(g.Home_Spread, g.Home_Spread_Odds);
+      const aSpread = fmtSpread(g.Away_Spread, g.Away_Spread_Odds);
+
+      // Flags (fatigue + injury)
+      const flags = [];
+      if (g.Home_IS_B2B) flags.push(`<span class="badge bg-red-950 text-red-400">${home} B2B</span>`);
+      if (g.Away_IS_B2B) flags.push(`<span class="badge bg-red-950 text-red-400">${away} B2B</span>`);
+      if (g.Home_IS_3IN4) flags.push(`<span class="badge bg-orange-950 text-orange-400">${home} 3in4</span>`);
+      if (g.Away_IS_3IN4) flags.push(`<span class="badge bg-orange-950 text-orange-400">${away} 3in4</span>`);
+      if (g.Home_Injuries?.length) flags.push(`<span class="badge bg-yellow-950 text-yellow-400">⚕ ${home} ${g.Home_Injuries.length}</span>`);
+      if (g.Away_Injuries?.length) flags.push(`<span class="badge bg-yellow-950 text-yellow-400">⚕ ${away} ${g.Away_Injuries.length}</span>`);
+
+      // Stat bar helper
+      function statBar(hv, av) {
+        const t = Math.abs(hv||0) + Math.abs(av||0);
+        if (!t) return 50;
+        return Math.max(5, Math.min(95, ((hv||0)/t)*100));
+      }
+      const eloPct   = statBar(g.Home_ELO, g.Away_ELO);
+      const offPct   = statBar(g.Home_OFF_RTG, g.Away_OFF_RTG);
+      const defPct   = statBar(g.Away_DEF_RTG, g.Home_DEF_RTG);
+      const rosterPct = statBar(hHealth, aHealth);
+
+      const card = document.createElement('div');
+      card.style.animationDelay = `${idx * 40}ms`;
+      card.className = `card rounded-xl p-4 flex flex-col gap-3 card-enter ${cardExtra} transition-all duration-300`;
+      card.innerHTML = `
+        <!-- Top meta row -->
+        <div class="flex items-center justify-between">
+          <span class="text-xs text-gray-500">${gameTime || ''}</span>
+          <div class="flex items-center gap-1.5">
+            ${g.Bookmaker ? `<span class="badge bg-gray-800 text-gray-400">${g.Bookmaker}</span>` : ''}
+          </div>
+        </div>
+
+        <!-- Teams + odds -->
+        <div class="flex items-stretch gap-2">
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="text-base font-extrabold text-white tracking-wide">${home}</div>
+            <div class="text-xs text-gray-500">Home</div>
+            <div class="flex flex-wrap justify-center gap-1 mt-1">
+              <span class="spread-chip">${fmtML(g.Home_ML)}</span>
+              ${hSpread ? `<span class="spread-chip">${hSpread}</span>` : ''}
+            </div>
+          </div>
+          <div class="flex flex-col items-center justify-center px-1 gap-1">
+            <div class="text-xs font-bold text-gray-600 uppercase tracking-widest">vs</div>
+            <div class="text-xs font-bold" style="color:${probColour}">${g.Win_Prob}</div>
+          </div>
+          <div class="flex-1 flex flex-col items-center gap-1">
+            <div class="text-base font-extrabold text-white tracking-wide">${away}</div>
+            <div class="text-xs text-gray-500">Away</div>
+            <div class="flex flex-wrap justify-center gap-1 mt-1">
+              <span class="spread-chip">${fmtML(g.Away_ML)}</span>
+              ${aSpread ? `<span class="spread-chip">${aSpread}</span>` : ''}
+            </div>
+          </div>
+        </div>
+
+        <!-- Win probability bar -->
+        <div>
+          <div class="flex justify-between text-xs mb-1 text-gray-500">
+            <span>${home} ${pick === home ? `<strong style="color:${probColour}">${g.Win_Prob}</strong>` : ''}</span>
+            <span class="font-semibold text-gray-400 text-center">Model → ${pick}</span>
+            <span>${pick === away ? `<strong style="color:${probColour}">${g.Win_Prob}</strong>` : ''} ${away}</span>
+          </div>
+          <div class="prob-bar">
+            <div class="prob-fill" style="width:${pick===home?winPct*100:(1-winPct)*100}%;background:${probColour}"></div>
+          </div>
+        </div>
+
+        <!-- Model vs Vegas comparison -->
+        ${vegasImpl !== null ? `
+        <div class="rounded-lg p-2.5" style="background:#0d1520;border:1px solid #1e3a5f">
+          <div class="text-xs font-semibold text-blue-400 mb-2 uppercase tracking-wide">Model vs Vegas — ${pick}</div>
+          <div class="space-y-1.5">
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-gray-400" style="width:48px;text-align:right">Model</span>
+              <div class="flex-1 prob-bar" style="height:7px">
+                <div class="prob-fill" style="width:${(winPct*100).toFixed(1)}%;background:${probColour}"></div>
+              </div>
+              <span class="text-xs font-bold" style="color:${probColour};width:38px">${(winPct*100).toFixed(1)}%</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-gray-500" style="width:48px;text-align:right">Vegas</span>
+              <div class="flex-1 prob-bar" style="height:7px">
+                <div class="prob-fill" style="width:${(vegasImpl*100).toFixed(1)}%;background:#475569"></div>
+              </div>
+              <span class="text-xs font-bold text-gray-400" style="width:38px">${(vegasImpl*100).toFixed(1)}%</span>
+            </div>
+          </div>
+          <div class="text-xs text-right mt-1.5 font-semibold" style="color:${edgeColour}">
+            ${edgeNum >= 0 ? '+' : ''}${(edgeNum*100).toFixed(1)}% edge over market
+          </div>
+        </div>` : ''}
+
+        <!-- Key edge factors -->
+        <div class="rounded-lg p-2.5" style="background:#0a1a0a;border:1px solid #1a3a1a">
+          <div class="text-xs font-semibold text-green-500 mb-1.5 uppercase tracking-wide">Key Factors — ${pick}</div>
+          <div class="flex flex-wrap gap-1">
+            ${eloDiff !== null ? `<span class="badge ${eloDiff > 20 ? 'bg-green-950 text-green-300' : eloDiff > 0 ? 'bg-green-950 text-green-500' : eloDiff > -20 ? 'bg-red-950 text-red-500' : 'bg-red-950 text-red-300'}">ELO ${eloDiff > 0 ? '+' : ''}${eloDiff.toFixed(0)}</span>` : ''}
+            ${rosterDiff !== null ? `<span class="badge ${rosterDiff > 5 ? 'bg-green-950 text-green-300' : rosterDiff > 0 ? 'bg-green-950 text-green-500' : rosterDiff > -5 ? 'bg-red-950 text-red-500' : 'bg-red-950 text-red-300'}">Roster ${rosterDiff > 0 ? '+' : ''}${rosterDiff.toFixed(1)}</span>` : ''}
+            ${offVsDef !== null ? `<span class="badge ${offVsDef > 2 ? 'bg-green-950 text-green-300' : offVsDef >= 0 ? 'bg-green-950 text-green-500' : offVsDef > -2 ? 'bg-red-950 text-red-500' : 'bg-red-950 text-red-300'}">Off vs Def ${offVsDef > 0 ? '+' : ''}${offVsDef.toFixed(1)}</span>` : ''}
+            ${oppB2B ? `<span class="badge bg-green-950 text-green-300">Opp B2B 😴</span>` : ''}
+            ${oppFatigue ? `<span class="badge bg-green-950 text-green-300">Opp 3in4 😴</span>` : ''}
+            ${(g.Home_IS_B2B && pickIsHome) ? `<span class="badge bg-red-950 text-red-300">${pick} B2B ⚠</span>` : ''}
+            ${(g.Away_IS_B2B && !pickIsHome) ? `<span class="badge bg-red-950 text-red-300">${pick} B2B ⚠</span>` : ''}
+          </div>
+        </div>
+
+        <!-- Stat comparison bars -->
+        <div class="space-y-1.5">
+          ${compRow('ELO', g.Home_ELO?.toFixed(0), g.Away_ELO?.toFixed(0), eloPct)}
+          ${compRow('Off Rtg', g.Home_OFF_RTG?.toFixed(1), g.Away_OFF_RTG?.toFixed(1), offPct)}
+          ${compRow('Def Rtg', g.Home_DEF_RTG?.toFixed(1), g.Away_DEF_RTG?.toFixed(1), defPct)}
+          ${compRow('Roster', hHealth+'%', aHealth+'%', rosterPct)}
+        </div>
+
+        <!-- Flags -->
+        ${flags.length ? `<div class="flex flex-wrap gap-1">${flags.join('')}</div>` : ''}
+
+        <!-- Action row -->
+        <div class="flex items-center justify-between pt-2 border-t border-gray-800 gap-2">
+          <div>
+            ${isBet
+              ? `<div class="text-green-400 font-bold text-sm">${g.Action}</div><div class="text-xs text-gray-500">${g.Pot_Profit} potential</div>`
+              : `<div class="text-gray-500 font-semibold text-sm">NO BET</div><div class="text-xs" style="color:${edgeColour}">${g.Edge} edge</div>`
+            }
+          </div>
+          <button onclick='openModal(${idx})' class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white transition-all shrink-0">
+            🤖 AI Analysis
+          </button>
+        </div>
+      `;
+      container.appendChild(card);
+    }
+
+    function compRow(label, homeVal, awayVal, homePct) {
+      return `<div>
+        <div class="flex justify-between text-xs text-gray-500 mb-0.5">
+          <span class="font-medium text-gray-400">${homeVal ?? '—'}</span>
+          <span class="text-gray-600" style="font-size:0.65rem">${label}</span>
+          <span class="font-medium text-gray-400">${awayVal ?? '—'}</span>
+        </div>
+        <div class="prob-bar" style="height:4px">
+          <div class="prob-fill" style="width:${homePct}%;background:linear-gradient(90deg,#22c55e,#16a34a)"></div>
+        </div>
+      </div>`;
+    }
+
+    // ─── AI Modal ────────────────────────────────────────────────────────────
+    function openModal(idx) {
+      const g = predictionsData[idx];
+      if (!g) return;
+      modalGameData = g;
+
+      document.getElementById('ai-modal').classList.add('active');
+      document.getElementById('modal-title').textContent = g.Game;
+
+      const home = g.Home || g.Game?.split(' vs ')[0] || '?';
+      const away = g.Away || g.Game?.split(' vs ')[1] || '?';
+      const bet = isBetAction(g.Action);
+      const gameTime = fmtGameTime(g.Game_Time);
+
+      // Summary badges
+      document.getElementById('modal-summary').innerHTML = `
+        <span class="badge ${bet ? 'bg-green-900 text-green-300' : 'bg-gray-800 text-gray-400'}">${bet ? '🟢 ' + g.Action : '🔴 No Bet'}</span>
+        <span class="badge bg-gray-800 text-gray-300">Win: ${g.Win_Prob}</span>
+        <span class="badge bg-gray-800 text-gray-300">Edge: ${g.Edge}</span>
+        ${g.Vegas_Odds && g.Vegas_Odds !== '-' ? `<span class="badge bg-gray-800 text-gray-300">ML: ${g.Vegas_Odds}</span>` : ''}
+        ${g.Pot_Profit && g.Pot_Profit !== '-' ? `<span class="badge bg-gray-800 text-green-400">${g.Pot_Profit}</span>` : ''}
+        ${g.Bookmaker ? `<span class="badge bg-gray-800 text-blue-400">${g.Bookmaker}</span>` : ''}
+        ${gameTime ? `<span class="badge bg-gray-800 text-gray-400">🕐 ${gameTime}</span>` : ''}
+      `;
+
+      // Stat comparison grid
+      const hHealth = g.Home_Roster_Max ? Math.round(g.Home_Roster_Strength / g.Home_Roster_Max * 100) : 100;
+      const aHealth = g.Away_Roster_Max ? Math.round(g.Away_Roster_Strength / g.Away_Roster_Max * 100) : 100;
+      const hSpread = fmtSpread(g.Home_Spread, g.Home_Spread_Odds);
+      const aSpread = fmtSpread(g.Away_Spread, g.Away_Spread_Odds);
+
+      document.getElementById('modal-comp-grid').innerHTML = [
+        compStatRow(home + ' ELO', g.Home_ELO?.toFixed(0), away + ' ELO', g.Away_ELO?.toFixed(0)),
+        compStatRow('Off Rtg (10g)', g.Home_OFF_RTG?.toFixed(1), 'Off Rtg (10g)', g.Away_OFF_RTG?.toFixed(1)),
+        compStatRow('Def Rtg (10g)', g.Home_DEF_RTG?.toFixed(1), 'Def Rtg (10g)', g.Away_DEF_RTG?.toFixed(1)),
+        compStatRow('eFG% (10g)', g.Home_EFG_PCT ? (g.Home_EFG_PCT*100).toFixed(1)+'%' : '—', 'eFG% (10g)', g.Away_EFG_PCT ? (g.Away_EFG_PCT*100).toFixed(1)+'%' : '—'),
+        compStatRow('Roster Health', hHealth+'%', 'Roster Health', aHealth+'%'),
+        compStatRow('Spread', hSpread || '—', 'Spread', aSpread || '—'),
+      ].join('');
+      document.getElementById('modal-comparison').classList.remove('hidden');
+
+      // Injury pills with player names
+      const injEl = document.getElementById('modal-injuries');
+      const injContent = document.getElementById('modal-inj-content');
+      const hInj = g.Home_Injuries || [];
+      const aInj = g.Away_Injuries || [];
+      if (hInj.length || aInj.length) {
+        injContent.innerHTML = '';
+        hInj.forEach(p => {
+          const span = document.createElement('span');
+          span.className = 'inj-pill';
+          span.style.cssText = 'background:#451a03;color:#fbbf24';
+          span.textContent = `${home}: ${p}`;
+          injContent.appendChild(span);
+        });
+        aInj.forEach(p => {
+          const span = document.createElement('span');
+          span.className = 'inj-pill';
+          span.style.cssText = 'background:#431407;color:#fb923c';
+          span.textContent = `${away}: ${p}`;
+          injContent.appendChild(span);
+        });
+        injEl.classList.remove('hidden');
+      } else {
+        injEl.classList.add('hidden');
+      }
+
+      // Reset analysis + fetch
+      document.getElementById('modal-analysis').innerHTML = `<div class="flex items-center gap-3 text-gray-500"><div class="spinner"></div><span>Generating analysis…</span></div>`;
+
+      fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(g)
+      })
+      .then(r => r.json())
+      .then(data => {
+        const text = data.analysis || 'No analysis available.';
+        document.getElementById('modal-analysis').innerHTML = text
+          .split('\n').filter(p => p.trim())
+          .map(p => `<p class="mb-3 last:mb-0">${p}</p>`).join('');
+      })
+      .catch(() => {
+        document.getElementById('modal-analysis').innerHTML = '<p class="text-red-400">Failed to generate analysis.</p>';
+      });
+    }
+
+    function compStatRow(l1, v1, l2, v2) {
+      return `
+        <div class="flex justify-between py-1 border-b border-gray-800/40">
+          <span class="text-gray-500">${l1}</span>
+          <span class="font-semibold text-white">${v1 ?? '—'}</span>
+        </div>
+        <div class="flex justify-between py-1 border-b border-gray-800/40">
+          <span class="text-gray-500">${l2}</span>
+          <span class="font-semibold text-white">${v2 ?? '—'}</span>
+        </div>`;
+    }
+
+    function closeModal() {
+      document.getElementById('ai-modal').classList.remove('active');
+    }
+
+    // Close modal on overlay click
+    document.getElementById('ai-modal').addEventListener('click', (e) => {
+      if (e.target === document.getElementById('ai-modal')) closeModal();
+    });
+
+    // ─── Backtest Chart ──────────────────────────────────────────────────────
+    async function loadBacktest() {
+      try {
+        const res = await fetch('/api/backtest');
+        const data = await res.json();
+
+        if (data.error) return;
+
+        // Update stats bar
+        document.getElementById('stat-roi').textContent = (data.roi >= 0 ? '+' : '') + data.roi + '%';
+        document.getElementById('stat-roi').style.color = data.roi >= 0 ? '#22c55e' : '#ef4444';
+        document.getElementById('stat-winrate').textContent = data.win_rate + '%';
+        document.getElementById('stat-bets').textContent = data.total_bets.toLocaleString();
+
+        // Bankroll chart
+        const ctx = document.getElementById('bankroll-chart').getContext('2d');
+        if (bankrollChart) bankrollChart.destroy();
+
+        const startingBankroll = data.bankroll[0] || 1000;
+        const refLine = data.labels.map(() => startingBankroll);
+
+        bankrollChart = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: data.labels,
+            datasets: [
+              {
+                label: 'Bankroll ($)',
+                data: data.bankroll,
+                fill: true,
+                borderColor: '#22c55e',
+                backgroundColor: 'rgba(34,197,94,0.06)',
+                borderWidth: 2,
+                pointRadius: 0,
+                pointHoverRadius: 4,
+                tension: 0.3,
+                order: 1,
+              },
+              {
+                label: `Starting ($${startingBankroll.toFixed(0)})`,
+                data: refLine,
+                borderColor: 'rgba(255,255,255,0.15)',
+                borderWidth: 1.5,
+                borderDash: [6, 4],
+                pointRadius: 0,
+                fill: false,
+                tension: 0,
+                order: 2,
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+              legend: {
+                display: true,
+                labels: { color: '#6b7280', font: { size: 11 }, boxWidth: 14, padding: 12 }
+              },
+              tooltip: {
+                backgroundColor: '#1a2235',
+                borderColor: '#1e2a3f',
+                borderWidth: 1,
+                titleColor: '#9ca3af',
+                bodyColor: '#f9fafb',
+                callbacks: {
+                  label: ctx => ctx.datasetIndex === 1 ? null : ` $${ctx.parsed.y.toFixed(0)}`
+                }
+              }
+            },
+            scales: {
+              x: {
+                grid: { color: '#1a2235' },
+                ticks: { color: '#4b5563', maxTicksLimit: 8, font: { size: 11 } }
+              },
+              y: {
+                grid: { color: '#1a2235' },
+                ticks: { color: '#4b5563', callback: v => '$' + v.toFixed(0), font: { size: 11 } }
+              }
+            }
+          }
+        });
+      } catch (e) {
+        console.error('Failed to load backtest', e);
+      }
+    }
+  </script>
+</body>
+</html>
